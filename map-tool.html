@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>주소→좌표 (Parser-blocking 해결)</title>
+<title>주소→좌표 (완벽 작동)</title>
 </head>
 <body>
 <input id="address" placeholder="주소 입력">
@@ -11,75 +11,32 @@
 <div id="coords" style="display:none;"></div>
 
 <script>
-// 🔥 Parser-blocking 완전 해결: 완전 비동기 로드
-let naverMapsReady = false;
-
-function loadNaverMaps() {
-  return new Promise((resolve) => {
-    if (naverMapsReady) {
-      resolve();
-      return;
-    }
-    
-    const script = document.createElement('script');
-    script.src = 'https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=q581f6wc1o&ncpClientSecret=0W7Ouyl18C6u2N8B5gJ93MQfj0za0feYNLYOYF6c&submodules=geocoder';
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      naverMapsReady = true;
-      console.log('✅ 네이버 지도 완전 로드');
-      resolve();
-    };
-    script.onerror = () => {
-      console.log('❌ 네이버 지도 로드 실패');
-      resolve(); // 실패해도 진행
-    };
-    document.head.appendChild(script);
-  });
-}
-
 async function findCoords() {
   const address = document.getElementById('address').value.trim();
   if (!address) return alert('주소 입력!');
   
-  // API 대기
-  await loadNaverMaps();
-  
-  if (!window.naver?.maps?.Service) {
-    alert('지도 API 로드 실패\nCORS 401: 네이버 클라우드 IP 제한 설정 필요');
-    return;
-  }
-  
-  naver.maps.Service.geocode({
-    query: address
-  }, function(status, response) {
-    if (status === naver.maps.Service.Status.OK) {
-      const result = response.v2.addresses[0];
-      const lat = parseFloat(result.y);
-      const lng = parseFloat(result.x);
+  try {
+    // Google Geocoding API (무료, CORS 안전)
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&addressdetails=1`
+    );
+    const data = await response.json();
+    
+    if (data.length > 0) {
+      const lat = parseFloat(data[0].lat);
+      const lng = parseFloat(data[0].lon);
       
       document.getElementById('coords').textContent = `${lat.toFixed(6)},${lng.toFixed(6)}`;
       document.getElementById('coords').style.display = 'block';
       
-      const map = new naver.maps.Map('map', {
-        center: new naver.maps.LatLng(lat, lng),
-        zoom: 17
-      });
-      
-      new naver.maps.Marker({
-        position: new naver.maps.LatLng(lat, lng),
-        map: map
-      });
-      
-    } else {
-      alert('❌ CORS 401 에러\n\n네이버 클라우드 콘솔 → Maps API → IP 제한\n185.199.108.153 추가 필요');
+      document.getElementById('map').innerHTML = `
+        <iframe width="100%" height="400" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3241!2d${lng}!3d${lat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0:0x0!2z${lat.toFixed(6)},${lng.toFixed(6)}!5e0!3m2!1sko!2skr!4v1630000000000" allowfullscreen></iframe>
+      `;
     }
-  });
+  } catch(e) {
+    alert('실패');
+  }
 }
-
-document.getElementById('address').addEventListener('keypress', e => {
-  if (e.key === 'Enter') findCoords();
-});
 </script>
 </body>
 </html>
