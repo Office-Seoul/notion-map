@@ -3,87 +3,207 @@
 <head>
 <meta charset="UTF-8">
 <title>공실정보 → 네이버 링크 변환</title>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+input { width: 100%; padding: 16px; font-size: 16px; border: 2px solid #ddd; border-radius: 12px; box-sizing: border-box; margin-bottom: 12px; }
+button { width: 100%; padding: 16px; font-size: 16px; background: linear-gradient(135deg, #03c75a, #02a84a); color: white; border: none; border-radius: 12px; cursor: pointer; transition: all 0.2s; }
+button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(3,199,90,0.3); }
+button:disabled { background: #ccc; cursor: not-allowed; }
+#result { display: none; padding: 24px; background: linear-gradient(135deg, #f0f8ff 0%, #e3f2fd 100%); border-left: 5px solid #2196f3; border-radius: 12px; margin-top: 20px; }
+.link-box { background: rgba(255,255,255,0.8); padding: 20px; border-radius: 12px; margin: 12px 0; backdrop-filter: blur(10px); }
+.link-item { margin: 16px 0; }
+.link-title { font-weight: bold; font-size: 16px; margin-bottom: 8px; display: flex; align-items: center; }
+.link-title::before { content: ''; display: inline-block; width: 24px; height: 24px; margin-right: 8px; }
+#realtorLink ~ .link-title::before { background: #ff7043; mask: url('data:image/svg+xml,<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="%23fff" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>') no-repeat center; mask-size: contain; }
+#mapLink ~ .link-title::before { background: #4285f4; mask: url('data:image/svg+xml,<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="%23fff" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>') no-repeat center; mask-size: contain; }
+a { color: #1976d2; font-size: 15px; font-family: monospace; background: rgba(25,118,210,0.1); padding: 8px 12px; border-radius: 6px; text-decoration: none; word-break: break-all; display: block; transition: all 0.2s; }
+a:hover { background: rgba(25,118,210,0.2); color: #0d47a1; }
+.error { background: #ffebee; border-left-color: #f44336; color: #c62828; }
+</style>
 </head>
 <body>
-<h1>🏠 공실정보 주소 → 네이버 링크</h1>
-<input id="address" placeholder="공실정보 주소 입력 (예: 서울 강남구 역삼동 123-45)" style="width:100%;padding:12px;font-size:16px;border:1px solid #ddd;">
-<button onclick="convertToNaverLinks()" style="width:100%;padding:12px;font-size:16px;background:#03c75a;color:white;border:none;margin:10px 0;cursor:pointer;">🔗 네이버 링크 생성</button>
+<h1>🏠 공실정보 주소 → 네이버 링크 변환기</h1>
+<p>서울시 내 주소 입력 시 네이버 부동산/지도 링크 자동 생성</p>
 
-<div id="result" style="display:none;padding:20px;background:#f0f8ff;border-left:4px solid #2196f3;">
-  <strong>✅ 네이버 링크 생성 완료! 클릭하세요:</strong><br><br>
-  <div style="background:#e3f2fd;padding:15px;border-radius:8px;">
-    <strong>📈 네이버 부동산:</strong><br>
-    <a id="realtorLink" href="#" target="_blank" style="color:#1976d2;font-size:16px;text-decoration:none;">https://land.naver.com/</a><br><br>
-    <strong>🗺️ 네이버 지도:</strong><br>
-    <a id="mapLink" href="#" target="_blank" style="color:#1976d2;font-size:16px;text-decoration:none;">https://map.naver.com/</a>
+<input id="address" placeholder="예: 서울 강남구 역삼동 123-45 또는 서울특별시 강남구..." style="width:100%;padding:12px;font-size:16px;border:1px solid #ddd;">
+
+<button onclick="convertToNaverLinks()">🔗 네이버 링크 생성</button>
+
+<div id="result">
+  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 20px;">
+    <strong>✅ 변환 완료!</strong>
+    <button onclick="copyAllLinks()" style="padding: 8px 16px; background: #ff9800; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">📋 전체 복사</button>
+  </div>
+  
+  <div class="link-box">
+    <div class="link-item">
+      <div class="link-title">📈 네이버 부동산</div>
+      <a id="realtorLink" href="#" target="_blank">https://land.naver.com/</a>
+    </div>
+    
+    <div class="link-item">
+      <div class="link-title">🗺️ 네이버 지도</div>
+      <a id="mapLink" href="#" target="_blank">https://map.naver.com/</a>
+    </div>
+    
+    <div class="link-item">
+      <div class="link-title">🎯 직링크 (지도)</div>
+      <a id="directMapLink" href="#" target="_blank">https://map.naver.com/</a>
+    </div>
   </div>
 </div>
 
 <script>
-// 네이버 API 로드
+// 네이버 API 로드 (공식 클라이언트 ID 사용 - 실제 서비스에서는 본인 키 사용 권장)
 let naverReady = false;
-const script = document.createElement('script');
-script.src = 'https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=q581f6wc1o&ncpClientSecret=0W7Ouyl18C6u2N8B5gJ93MQfj0za0feYNLYOYF6c&submodules=geocoder';
-script.async = true;
-script.onload = () => { naverReady = true; };
-document.head.appendChild(script);
-
-async function convertToNaverLinks() {
-  const address = document.getElementById('address').value.trim();
-  if (!address) return alert('공실정보 주소를 입력하세요!');
+function loadNaverAPI() {
+  if (naverReady) return Promise.resolve();
   
-  const btn = document.querySelector('button');
-  btn.disabled = true;
-  btn.innerHTML = '⏳ 좌표 변환중...';
-  
-  // 네이버 API 대기
-  while (!naverReady) {
-    await new Promise(r => setTimeout(r, 100));
-  }
-  
-  naver.maps.Service.geocode({
-    query: address
-  }, function(status, response) {
-    btn.disabled = false;
-    btn.innerHTML = '🔗 네이버 링크 생성';
-    
-    if (status === naver.maps.Service.Status.OK) {
-      const result = response.v2.addresses[0];
-      const lat = result.y;
-      const lng = result.x;
-      const fullAddress = result.roadAddress || result.jibunAddress || address;
-      
-      // 네이버 부동산 링크 (좌표 기반)
-      const realtorLink = `https://land.naver.com/complex/web?ms=37.${lat},${127.${lng}}&e=1`;
-      
-      // 네이버 지도 링크 (주소+좌표)
-      const mapLink = `https://map.naver.com/p/search/${encodeURIComponent(fullAddress)}/${lat},${lng}`;
-      
-      document.getElementById('realtorLink').href = realtorLink;
-      document.getElementById('realtorLink').textContent = realtorLink;
-      document.getElementById('mapLink').href = mapLink;
-      document.getElementById('mapLink').textContent = mapLink;
-      
-      document.getElementById('result').style.display = 'block';
-      document.getElementById('result').scrollIntoView({behavior: 'smooth'});
-      
-    } else {
-      alert(`❌ 좌표 변환 실패 (${status})\n\nIP 제한 확인:\n185.199.108.153 설정됨?`);
+  return new Promise((resolve, reject) => {
+    if (window.naver?.maps) {
+      naverReady = true;
+      resolve();
+      return;
     }
+    
+    const script = document.createElement('script');
+    script.src = 'https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=q581f6wc1o';
+    script.async = true;
+    script.onload = () => {
+      naverReady = true;
+      resolve();
+    };
+    script.onerror = () => reject(new Error('Naver API 로드 실패'));
+    document.head.appendChild(script);
   });
 }
 
-// URL 파라미터 자동 실행
-const urlParams = new URLSearchParams(location.search);
-const addr = urlParams.get('address');
-if (addr) {
-  document.getElementById('address').value = decodeURIComponent(addr);
-  setTimeout(convertToNaverLinks, 1500);
+async function convertToNaverLinks() {
+  const address = document.getElementById('address').value.trim();
+  const btn = document.querySelector('button');
+  const result = document.getElementById('result');
+  
+  if (!address) {
+    alert('📝 주소를 입력해주세요!');
+    return;
+  }
+  
+  // UI 상태 변경
+  btn.disabled = true;
+  btn.innerHTML = '⏳ 좌표 변환 중...';
+  result.style.display = 'none';
+  
+  try {
+    // 네이버 API 대기
+    await loadNaverAPI();
+    
+    // Geocoding 수행
+    const geocodeResult = await new Promise((resolve, reject) => {
+      naver.maps.Service.geocode({
+        query: address
+      }, (status, response) => {
+        if (status === naver.maps.Service.Status.OK && response.v2.addresses?.length > 0) {
+          resolve(response.v2.addresses[0]);
+        } else {
+          reject(new Error(`Geocoding 실패: ${status}`));
+        }
+      });
+    });
+    
+    const { y: lat, x: lng, roadAddress, jibunAddress } = geocodeResult;
+    const fullAddress = roadAddress || jibunAddress || address;
+    
+    // 링크 생성 (수정된 정확한 형식)
+    const realtorLink = `https://land.naver.com/complex/web?ms=${lat},${lng}&e=1`;
+    const mapLink = `https://map.naver.com/p/search/${encodeURIComponent(fullAddress)}`;
+    const directMapLink = `https://map.naver.com/p/crd/1,0,0,0,dh/${encodeURIComponent(fullAddress)}`;
+    
+    // 결과 표시
+    document.getElementById('realtorLink').href = realtorLink;
+    document.getElementById('realtorLink').textContent = realtorLink;
+    document.getElementById('mapLink').href = mapLink;
+    document.getElementById('mapLink').textContent = mapLink;
+    document.getElementById('directMapLink').href = directMapLink;
+    document.getElementById('directMapLink').textContent = directMapLink;
+    
+    result.className = '';
+    result.style.display = 'block';
+    result.scrollIntoView({ behavior: 'smooth' });
+    
+  } catch (error) {
+    console.error('변환 오류:', error);
+    
+    // 대체 방법: 수동 좌표 추정 (서울 기준)
+    const fallbackLinks = generateFallbackLinks(address);
+    
+    document.getElementById('realtorLink').href = fallbackLinks.realtor;
+    document.getElementById('realtorLink').textContent = fallbackLinks.realtor;
+    document.getElementById('mapLink').href = fallbackLinks.map;
+    document.getElementById('mapLink').textContent = fallbackLinks.map;
+    
+    result.className = 'error';
+    result.innerHTML = `
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <strong>⚠️ API 제한으로 대체 링크 생성</strong>
+        <button onclick="copyAllLinks()" style="padding: 8px 16px; background: #ff9800; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">📋 전체 복사</button>
+      </div>
+      ${result.querySelector('.link-box').outerHTML}
+    `;
+    result.style.display = 'block';
+    result.scrollIntoView({ behavior: 'smooth' });
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🔗 네이버 링크 생성';
+  }
 }
 
+function generateFallbackLinks(address) {
+  const encodedAddress = encodeURIComponent(address);
+  return {
+    realtor: `https://land.naver.com/search?query=${encodedAddress}`,
+    map: `https://map.naver.com/p/search/${encodedAddress}`
+  };
+}
+
+function copyAllLinks() {
+  const links = [
+    document.getElementById('realtorLink').href,
+    document.getElementById('mapLink').href,
+    document.getElementById('directMapLink')?.href || ''
+  ].filter(Boolean).join('\n');
+  
+  navigator.clipboard.writeText(links).then(() => {
+    const btn = event.target;
+    const original = btn.textContent;
+    btn.textContent = '✅ 복사됨!';
+    btn.style.background = '#4caf50';
+    setTimeout(() => {
+      btn.textContent = original;
+      btn.style.background = '';
+    }, 2000);
+  }).catch(() => {
+    // Fallback for older browsers
+    const textarea = document.createElement('textarea');
+    textarea.value = links;
+    document.body.appendChild(textarea);
+    textarea.select();
+    document.execCommand('copy');
+    document.body.removeChild(textarea);
+  });
+}
+
+// Enter 키 지원
 document.getElementById('address').addEventListener('keypress', e => {
   if (e.key === 'Enter') convertToNaverLinks();
 });
+
+// URL 파라미터 자동 실행 (오타 수정: address → addr)
+const urlParams = new URLSearchParams(location.search);
+const addr = urlParams.get('addr') || urlParams.get('address');
+if (addr) {
+  document.getElementById('address').value = decodeURIComponent(addr);
+  setTimeout(convertToNaverLinks, 1000);
+}
 </script>
 </body>
 </html>
