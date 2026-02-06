@@ -2,90 +2,87 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>주소→좌표 (네이버 전용)</title>
+<title>공실정보 → 네이버 링크 변환</title>
 </head>
 <body>
-<h1>📍 주소 → 좌표 변환 (네이버)</h1>
-<div style="background:#ffebee;padding:15px;border-left:4px solid #f44336;margin-bottom:20px;">
-<strong>⚠️ CORS 401 에러 해결 필요</strong><br>
-네이버 클라우드 콘솔 → Application → Maps 앱 → IP 제한에<br>
-<code>185.199.108.153</code> 추가 후 테스트하세요
-</div>
+<h1>🏠 공실정보 주소 → 네이버 링크</h1>
+<input id="address" placeholder="공실정보 주소 입력 (예: 서울 강남구 역삼동 123-45)" style="width:100%;padding:12px;font-size:16px;border:1px solid #ddd;">
+<button onclick="convertToNaverLinks()" style="width:100%;padding:12px;font-size:16px;background:#03c75a;color:white;border:none;margin:10px 0;cursor:pointer;">🔗 네이버 링크 생성</button>
 
-<input id="address" placeholder="구/도로명 주소 모두 OK (예: 역삼동 717-15)" style="width:100%;padding:12px;font-size:16px;border:1px solid #ddd;">
-<button onclick="findCoords()" style="width:100%;padding:12px;font-size:16px;background:#03c75a;color:white;border:none;margin:10px 0;cursor:pointer;">🔍 좌표 찾기 & 복사</button>
-<div id="result" style="display:none;padding:15px;background:#e8f5e8;border-left:4px solid #4caf50;">
-  <strong>✅ 좌표 복사 완료!</strong><br>
-  <div id="coords" style="background:#333;color:#0f0;padding:12px;font-family:monospace;border-radius:4px;margin-top:10px;"></div>
+<div id="result" style="display:none;padding:20px;background:#f0f8ff;border-left:4px solid #2196f3;">
+  <strong>✅ 네이버 링크 생성 완료! 클릭하세요:</strong><br><br>
+  <div style="background:#e3f2fd;padding:15px;border-radius:8px;">
+    <strong>📈 네이버 부동산:</strong><br>
+    <a id="realtorLink" href="#" target="_blank" style="color:#1976d2;font-size:16px;text-decoration:none;">https://land.naver.com/</a><br><br>
+    <strong>🗺️ 네이버 지도:</strong><br>
+    <a id="mapLink" href="#" target="_blank" style="color:#1976d2;font-size:16px;text-decoration:none;">https://map.naver.com/</a>
+  </div>
 </div>
 
 <script>
-// 네이버 지도 API 비동기 로드
+// 네이버 API 로드
 let naverReady = false;
 const script = document.createElement('script');
 script.src = 'https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=q581f6wc1o&ncpClientSecret=0W7Ouyl18C6u2N8B5gJ93MQfj0za0feYNLYOYF6c&submodules=geocoder';
 script.async = true;
-script.defer = true;
-script.onload = () => { naverReady = true; console.log('✅ 네이버 API 로드완료'); };
+script.onload = () => { naverReady = true; };
 document.head.appendChild(script);
 
-async function findCoords() {
+async function convertToNaverLinks() {
   const address = document.getElementById('address').value.trim();
-  if (!address) return alert('주소를 입력하세요!');
+  if (!address) return alert('공실정보 주소를 입력하세요!');
   
   const btn = document.querySelector('button');
   btn.disabled = true;
-  btn.innerHTML = '⏳ 검색중...';
+  btn.innerHTML = '⏳ 좌표 변환중...';
   
-  // API 대기 (최대 3초)
-  const startTime = Date.now();
-  while (!naverReady && Date.now() - startTime < 3000) {
+  // 네이버 API 대기
+  while (!naverReady) {
     await new Promise(r => setTimeout(r, 100));
-  }
-  
-  if (!window.naver?.maps?.Service) {
-    alert('❌ 네이버 API 로드 실패\n\nCORS 401 에러 해결:\n1. 네이버 클라우드 콘솔\n2. Application → Maps 앱\n3. IP 제한 → 185.199.108.153 추가');
-    btn.disabled = false;
-    btn.innerHTML = '🔍 좌표 찾기 & 복사';
-    return;
   }
   
   naver.maps.Service.geocode({
     query: address
   }, function(status, response) {
     btn.disabled = false;
-    btn.innerHTML = '🔍 좌표 찾기 & 복사';
+    btn.innerHTML = '🔗 네이버 링크 생성';
     
     if (status === naver.maps.Service.Status.OK) {
       const result = response.v2.addresses[0];
-      const lat = parseFloat(result.y);
-      const lng = parseFloat(result.x);
-      const coordsText = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+      const lat = result.y;
+      const lng = result.x;
+      const fullAddress = result.roadAddress || result.jibunAddress || address;
       
-      // 자동 복사
-      navigator.clipboard.writeText(coordsText).then(() => {
-        document.getElementById('coords').textContent = coordsText;
-        document.getElementById('coords').title = `${result.roadAddress || result.jibunAddress}`;
-        document.getElementById('result').style.display = 'block';
-        document.getElementById('result').scrollIntoView({behavior: 'smooth'});
-      });
+      // 네이버 부동산 링크 (좌표 기반)
+      const realtorLink = `https://land.naver.com/complex/web?ms=37.${lat},${127.${lng}}&e=1`;
+      
+      // 네이버 지도 링크 (주소+좌표)
+      const mapLink = `https://map.naver.com/p/search/${encodeURIComponent(fullAddress)}/${lat},${lng}`;
+      
+      document.getElementById('realtorLink').href = realtorLink;
+      document.getElementById('realtorLink').textContent = realtorLink;
+      document.getElementById('mapLink').href = mapLink;
+      document.getElementById('mapLink').textContent = mapLink;
+      
+      document.getElementById('result').style.display = 'block';
+      document.getElementById('result').scrollIntoView({behavior: 'smooth'});
       
     } else {
-      alert(`❌ 실패 (${status})\n\n해결방법:\n• 네이버 클라우드 → Application → Maps\n• IP 제한 → 185.199.108.153 허용\n\n테스트 주소: "서울 강남구 역삼동 717-15"`);
+      alert(`❌ 좌표 변환 실패 (${status})\n\nIP 제한 확인:\n185.199.108.153 설정됨?`);
     }
   });
 }
 
-// URL 자동 실행
+// URL 파라미터 자동 실행
 const urlParams = new URLSearchParams(location.search);
 const addr = urlParams.get('address');
 if (addr) {
   document.getElementById('address').value = decodeURIComponent(addr);
-  setTimeout(findCoords, 1500);
+  setTimeout(convertToNaverLinks, 1500);
 }
 
 document.getElementById('address').addEventListener('keypress', e => {
-  if (e.key === 'Enter') findCoords();
+  if (e.key === 'Enter') convertToNaverLinks();
 });
 </script>
 </body>
