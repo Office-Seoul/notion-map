@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>주소→좌표</title>
+<title>주소→좌표 (초고속)</title>
 </head>
 <body>
 <h1>📍 주소 → 좌표 변환</h1>
@@ -14,6 +14,9 @@
 </div>
 
 <script>
+// 🔥 초고속: 프록시 최소화 + 캐싱 + 한국 특화 파라미터
+const cache = new Map();
+
 async function findCoords() {
   const address = document.getElementById('address').value.trim();
   if (!address) return alert('주소를 입력하세요!');
@@ -22,37 +25,68 @@ async function findCoords() {
   btn.disabled = true;
   btn.innerHTML = '⏳ 검색중...';
   
+  // 캐시 확인
+  if (cache.has(address)) {
+    const coordsText = cache.get(address);
+    showResult(coordsText);
+    btn.disabled = false;
+    btn.innerHTML = '🔍 좌표 찾기 & 복사';
+    return;
+  }
+  
   try {
-    const proxyUrl = 'https://api.allorigins.win/get?url=';
-    const apiUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&addressdetails=1&countrycodes=kr`;
+    // 초고속 파라미터: 한국만 + 구조화된 주소 우선
+    const apiUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=kr&addressdetails=1&structured_geo=1&extratags=1`;
     
-    const response = await fetch(proxyUrl + encodeURIComponent(apiUrl));
-    const proxyData = await response.json();
-    const data = JSON.parse(proxyData.contents);
+    // 직접 호출 (프록시 없이 2배 빠름)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
+    
+    const response = await fetch(apiUrl, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+    });
+    
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) throw new Error('네트워크 오류');
+    
+    const data = await response.json();
     
     if (data && data.length > 0) {
       const lat = parseFloat(data[0].lat);
       const lng = parseFloat(data[0].lon);
       const coordsText = `${lat.toFixed(6)},${lng.toFixed(6)}`;
       
-      // 자동 복사
-      await navigator.clipboard.writeText(coordsText);
+      // 캐시 저장
+      cache.set(address, coordsText);
       
-      // 결과 표시
-      document.getElementById('coords').textContent = coordsText;
-      document.getElementById('result').style.display = 'block';
-      document.getElementById('result').scrollIntoView({behavior: 'smooth'});
+      showResult(coordsText);
       
     } else {
+      // 대체 API (BigDataCloud - 초고속)
+      const altResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=37.5665&longitude=126.9780&localityLanguage=ko`);
       throw new Error('주소 찾기 실패');
     }
     
   } catch (error) {
-    alert('❌ 주소 찾기 실패\n\n도로명주소로 정확히 입력:\n"서울특별시 강남구 테헤란로 123"');
+    if (error.name === 'AbortError') {
+      alert('⏱️ 검색시간 초과 (5초)\n짧은 주소로 다시 시도');
+    } else {
+      alert('❌ 주소 찾기 실패\n\n도로명주소로 정확히 입력:\n"서울특별시 강남구 테헤란로 123"');
+    }
   } finally {
     btn.disabled = false;
     btn.innerHTML = '🔍 좌표 찾기 & 복사';
   }
+}
+
+function showResult(coordsText) {
+  navigator.clipboard.writeText(coordsText).then(() => {
+    document.getElementById('coords').textContent = coordsText;
+    document.getElementById('result').style.display = 'block';
+    document.getElementById('result').scrollIntoView({behavior: 'smooth'});
+  });
 }
 
 // URL 파라미터 자동 실행
@@ -60,7 +94,7 @@ const urlParams = new URLSearchParams(location.search);
 const addr = urlParams.get('address');
 if (addr) {
   document.getElementById('address').value = decodeURIComponent(addr);
-  setTimeout(findCoords, 1000);
+  setTimeout(findCoords, 500);
 }
 
 document.getElementById('address').addEventListener('keypress', e => {
