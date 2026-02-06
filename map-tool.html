@@ -2,56 +2,48 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>네이버 지도 API 테스트</title>
-<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=q581f6wc1o&ncpClientSecret=0W7Ouyl18C6u2N8B5gJ93MQfj0za0feYNLYOYF6c&submodules=geocoder"></script>
+<title>주소→좌표</title>
 </head>
 <body>
-<h1>네이버 지도 API 테스트</h1>
-
-<div id="status" style="display:none;"></div>
-
 <input id="address" placeholder="주소 입력">
-<button onclick="testGeocode()">테스트</button>
-
-<div id="map" style="height:400px;background:#f0f0f0;">지도 로딩중...</div>
-
-<div id="result" style="display:none;">
-  <strong>좌표:</strong>
-  <div id="coords"></div>
-</div>
+<button onclick="findCoords()">좌표 찾기</button>
+<div id="map" style="height:400px;"></div>
+<div id="coords" style="display:none;"></div>
 
 <script>
-function showStatus(msg, isError = false) {
-  const status = document.getElementById('status');
-  status.textContent = msg;
-  status.style.color = isError ? 'red' : 'green';
-  status.style.display = 'block';
+// 비동기 로드로 Parser-blocking 해결
+const script = document.createElement('script');
+script.src = 'https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=q581f6wc1o&ncpClientSecret=0W7Ouyl18C6u2N8B5gJ93MQfj0za0feYNLYOYF6c&submodules=geocoder';
+script.async = true;
+script.onload = initMap;
+document.head.appendChild(script);
+
+function initMap() {
+  console.log('네이버 지도 API 로드 완료');
 }
 
-function testGeocode() {
+function findCoords() {
   const address = document.getElementById('address').value.trim();
-  if (!address) return alert('주소를 입력하세요!');
+  if (!address) return alert('주소 입력!');
   
-  const btn = document.querySelector('button');
-  btn.disabled = true;
-  btn.textContent = '검색중...';
-  showStatus('테스트 중...', false);
+  if (!window.naver?.maps?.Service) {
+    alert('지도 API 로딩중... 잠시 후 다시');
+    return;
+  }
   
   naver.maps.Service.geocode({
     query: address
   }, function(status, response) {
-    btn.disabled = false;
-    btn.textContent = '테스트';
-    
     if (status === naver.maps.Service.Status.OK) {
       const result = response.v2.addresses[0];
       const lat = parseFloat(result.y);
       const lng = parseFloat(result.x);
       
-      showStatus('✅ API 정상 작동!', false);
-      document.getElementById('coords').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
-      document.getElementById('result').style.display = 'block';
+      // 좌표 표시
+      document.getElementById('coords').textContent = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+      document.getElementById('coords').style.display = 'block';
       
+      // 지도 표시
       const map = new naver.maps.Map('map', {
         center: new naver.maps.LatLng(lat, lng),
         zoom: 17
@@ -63,13 +55,13 @@ function testGeocode() {
       });
       
     } else {
-      showStatus(`❌ 실패: ${status}`, true);
+      alert('실패: ' + status + '\n\n네이버 클라우드 IP 제한 설정 필요');
     }
   });
 }
 
 document.getElementById('address').addEventListener('keypress', e => {
-  if (e.key === 'Enter') testGeocode();
+  if (e.key === 'Enter') findCoords();
 });
 </script>
 </body>
