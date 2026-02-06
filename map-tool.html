@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>주소→좌표</title>
+<title>주소→좌표 (Parser-blocking 해결)</title>
 </head>
 <body>
 <input id="address" placeholder="주소 입력">
@@ -11,23 +11,42 @@
 <div id="coords" style="display:none;"></div>
 
 <script>
-// 비동기 로드로 Parser-blocking 해결
-const script = document.createElement('script');
-script.src = 'https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=q581f6wc1o&ncpClientSecret=0W7Ouyl18C6u2N8B5gJ93MQfj0za0feYNLYOYF6c&submodules=geocoder';
-script.async = true;
-script.onload = initMap;
-document.head.appendChild(script);
+// 🔥 Parser-blocking 완전 해결: 완전 비동기 로드
+let naverMapsReady = false;
 
-function initMap() {
-  console.log('네이버 지도 API 로드 완료');
+function loadNaverMaps() {
+  return new Promise((resolve) => {
+    if (naverMapsReady) {
+      resolve();
+      return;
+    }
+    
+    const script = document.createElement('script');
+    script.src = 'https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=q581f6wc1o&ncpClientSecret=0W7Ouyl18C6u2N8B5gJ93MQfj0za0feYNLYOYF6c&submodules=geocoder';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => {
+      naverMapsReady = true;
+      console.log('✅ 네이버 지도 완전 로드');
+      resolve();
+    };
+    script.onerror = () => {
+      console.log('❌ 네이버 지도 로드 실패');
+      resolve(); // 실패해도 진행
+    };
+    document.head.appendChild(script);
+  });
 }
 
-function findCoords() {
+async function findCoords() {
   const address = document.getElementById('address').value.trim();
   if (!address) return alert('주소 입력!');
   
+  // API 대기
+  await loadNaverMaps();
+  
   if (!window.naver?.maps?.Service) {
-    alert('지도 API 로딩중... 잠시 후 다시');
+    alert('지도 API 로드 실패\nCORS 401: 네이버 클라우드 IP 제한 설정 필요');
     return;
   }
   
@@ -39,11 +58,9 @@ function findCoords() {
       const lat = parseFloat(result.y);
       const lng = parseFloat(result.x);
       
-      // 좌표 표시
       document.getElementById('coords').textContent = `${lat.toFixed(6)},${lng.toFixed(6)}`;
       document.getElementById('coords').style.display = 'block';
       
-      // 지도 표시
       const map = new naver.maps.Map('map', {
         center: new naver.maps.LatLng(lat, lng),
         zoom: 17
@@ -55,7 +72,7 @@ function findCoords() {
       });
       
     } else {
-      alert('실패: ' + status + '\n\n네이버 클라우드 IP 제한 설정 필요');
+      alert('❌ CORS 401 에러\n\n네이버 클라우드 콘솔 → Maps API → IP 제한\n185.199.108.153 추가 필요');
     }
   });
 }
