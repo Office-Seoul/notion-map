@@ -2,108 +2,42 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>주소→좌표 (구주소+도로명 모두 지원)</title>
+<title>주소→좌표 (네이버 - 구주소 지원)</title>
 </head>
 <body>
-<h1>📍 주소 → 좌표 변환</h1>
-<input id="address" placeholder="도로명 또는 구주소 모두 OK (예: 서울특별시 강남구 테헤란로 123 또는 역삼동 123-45)" style="width:100%;padding:12px;font-size:16px;border:1px solid #ddd;">
-<button onclick="findCoords()" style="width:100%;padding:12px;font-size:16px;background:#03c75a;color:white;border:none;margin:10px 0;cursor:pointer;">🔍 좌표 찾기 & 복사</button>
-<div id="result" style="display:none;padding:15px;background:#f0f9f4;border-left:4px solid #03c75a;">
-  <strong>✅ 좌표 복사 완료!</strong><br>
-  <div id="coords" style="background:#333;color:#0f0;padding:12px;font-family:monospace;border-radius:4px;margin-top:10px;"></div>
-</div>
+<input id="address" placeholder="구주소/도로명 모두 OK">
+<button onclick="findCoords()">좌표 찾기</button>
+<div id="coords" style="display:none;"></div>
 
 <script>
-const cache = new Map();
+const script = document.createElement('script');
+script.src = 'https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=q581f6wc1o&ncpClientSecret=0W7Ouyl18C6u2N8B5gJ93MQfj0za0feYNLYOYF6c&submodules=geocoder';
+script.async = true;
+document.head.appendChild(script);
 
 async function findCoords() {
   const address = document.getElementById('address').value.trim();
-  if (!address) return alert('주소를 입력하세요!');
+  if (!address) return alert('주소 입력!');
   
-  const btn = document.querySelector('button');
-  btn.disabled = true;
-  btn.innerHTML = '⏳ 검색중...';
-  
-  // 캐시 확인
-  if (cache.has(address)) {
-    showResult(cache.get(address));
-    btn.disabled = false;
-    btn.innerHTML = '🔍 좌표 찾기 & 복사';
+  if (!window.naver?.maps?.Service) {
+    alert('네이버 API 로딩중...');
     return;
   }
   
-  try {
-    // 🔥 구주소+도로명 모두 지원하는 최적화된 파라미터
-    const apiUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=3&countrycodes=kr&addressdetails=1&viewbox=126.5,37.4,127.2,38.0&bounded=1`;
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 4000);
-    
-    const response = await fetch(apiUrl, {
-      signal: controller.signal,
-      headers: { 
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Accept': 'application/json'
-      }
-    });
-    
-    clearTimeout(timeoutId);
-    
-    if (!response.ok) throw new Error('네트워크 오류');
-    
-    const data = await response.json();
-    
-    if (data && data.length > 0) {
-      // 가장 정확한 결과 선택 (도로명 우선 → 구주소)
-      const bestMatch = data.find(item => 
-        item.address.road || 
-        item.address.suburb || 
-        item.address.neighbourhood || 
-        item.type === 'house'
-      ) || data[0];
-      
-      const lat = parseFloat(bestMatch.lat);
-      const lng = parseFloat(bestMatch.lon);
-      const coordsText = `${lat.toFixed(6)},${lng.toFixed(6)}`;
-      
-      cache.set(address, coordsText);
-      showResult(coordsText);
-      
+  naver.maps.Service.geocode({
+    query: address
+  }, function(status, response) {
+    if (status === naver.maps.Service.Status.OK) {
+      const result = response.v2.addresses[0];
+      const coords = `${result.y},${result.x}`;
+      document.getElementById('coords').textContent = coords;
+      document.getElementById('coords').style.display = 'block';
+      navigator.clipboard.writeText(coords);
     } else {
-      throw new Error('주소 찾기 실패');
+      alert('실패: ' + status);
     }
-    
-  } catch (error) {
-    if (error.name === 'AbortError') {
-      alert('⏱️ 검색시간 초과\n더 정확한 주소로 입력');
-    } else {
-      alert('❌ 주소 찾기 실패\n\n도로명주소 우선 권장:\n"서울특별시 강남구 테헤란로 123"\n\n구주소도 가능:\n"서울시 강남구 역삼동 123-45"');
-    }
-  } finally {
-    btn.disabled = false;
-    btn.innerHTML = '🔍 좌표 찾기 & 복사';
-  }
-}
-
-function showResult(coordsText) {
-  navigator.clipboard.writeText(coordsText).then(() => {
-    document.getElementById('coords').textContent = coordsText;
-    document.getElementById('result').style.display = 'block';
-    document.getElementById('result').scrollIntoView({behavior: 'smooth'});
   });
 }
-
-// URL 파라미터 자동 실행
-const urlParams = new URLSearchParams(location.search);
-const addr = urlParams.get('address');
-if (addr) {
-  document.getElementById('address').value = decodeURIComponent(addr);
-  setTimeout(findCoords, 500);
-}
-
-document.getElementById('address').addEventListener('keypress', e => {
-  if (e.key === 'Enter') findCoords();
-});
 </script>
 </body>
 </html>
