@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>부동산 위치 도구</title>
+    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=5aa11b53a04d1bd6f78c87e27a21a400&libraries=services"></script>
+    <style>
+        body { font-family: sans-serif; padding: 10px; background: transparent; display: flex; justify-content: center; }
+        .card { background: white; border: 1px solid #ddd; border-radius: 8px; padding: 15px; width: 100%; max-width: 300px; text-align: center; }
+        .btn { background: #fee500; border: none; padding: 8px; width: 100%; border-radius: 5px; cursor: pointer; font-weight: bold; }
+        .status { font-size: 11px; color: #888; margin-top: 8px; }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div id="addr-display" style="font-size: 12px; margin-bottom: 10px; color: #333;">주소를 대기 중입니다.</div>
+        <button class="btn" onclick="openAndCopy()">지도 열기 & 좌표 복사</button>
+        <div id="copy-msg" class="status"></div>
+    </div>
+
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const addr = params.get('address');
+        const type = params.get('type');
+        const deal = params.get('deal');
+
+        if(addr) document.getElementById('addr-display').innerText = addr;
+
+        function openAndCopy() {
+            if(!addr) return alert("주소가 없습니다.");
+            
+            const geocoder = new kakao.maps.services.Geocoder();
+            geocoder.addressSearch(addr, (result, status) => {
+                if (status === kakao.maps.services.Status.OK) {
+                    const lat = result[0].y, lon = result[0].x;
+                    
+                    // 네이버 지도 & 부동산 열기
+                    window.open(`https://map.naver.com/p/search/${encodeURIComponent(addr)}`, '_blank');
+                    window.open(`https://new.land.naver.com/offices?ms=${lat},${lon},19&a=${type || 'SG'}&b=${deal || 'B2'}`, '_blank');
+
+                    // 좌표 복사
+                    navigator.clipboard.writeText(`${lat}, ${lon}`).then(() => {
+                        const msg = document.getElementById('copy-msg');
+                        msg.innerText = "✅ 좌표 복사 및 탭 오픈 완료!";
+                        setTimeout(() => msg.innerText = "", 2000);
+                    });
+                }
+            });
+        }
+    </script>
+</body>
+</html>
