@@ -2,11 +2,11 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>주소→좌표 (초고속)</title>
+<title>주소→좌표 (구주소+도로명 모두 지원)</title>
 </head>
 <body>
 <h1>📍 주소 → 좌표 변환</h1>
-<input id="address" placeholder="예: 서울특별시 강남구 테헤란로 123" style="width:100%;padding:12px;font-size:16px;border:1px solid #ddd;">
+<input id="address" placeholder="도로명 또는 구주소 모두 OK (예: 서울특별시 강남구 테헤란로 123 또는 역삼동 123-45)" style="width:100%;padding:12px;font-size:16px;border:1px solid #ddd;">
 <button onclick="findCoords()" style="width:100%;padding:12px;font-size:16px;background:#03c75a;color:white;border:none;margin:10px 0;cursor:pointer;">🔍 좌표 찾기 & 복사</button>
 <div id="result" style="display:none;padding:15px;background:#f0f9f4;border-left:4px solid #03c75a;">
   <strong>✅ 좌표 복사 완료!</strong><br>
@@ -14,7 +14,6 @@
 </div>
 
 <script>
-// 🔥 초고속: 프록시 최소화 + 캐싱 + 한국 특화 파라미터
 const cache = new Map();
 
 async function findCoords() {
@@ -27,24 +26,25 @@ async function findCoords() {
   
   // 캐시 확인
   if (cache.has(address)) {
-    const coordsText = cache.get(address);
-    showResult(coordsText);
+    showResult(cache.get(address));
     btn.disabled = false;
     btn.innerHTML = '🔍 좌표 찾기 & 복사';
     return;
   }
   
   try {
-    // 초고속 파라미터: 한국만 + 구조화된 주소 우선
-    const apiUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=1&countrycodes=kr&addressdetails=1&structured_geo=1&extratags=1`;
+    // 🔥 구주소+도로명 모두 지원하는 최적화된 파라미터
+    const apiUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=3&countrycodes=kr&addressdetails=1&viewbox=126.5,37.4,127.2,38.0&bounded=1`;
     
-    // 직접 호출 (프록시 없이 2배 빠름)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5초 타임아웃
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
     
     const response = await fetch(apiUrl, {
       signal: controller.signal,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }
+      headers: { 
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json'
+      }
     });
     
     clearTimeout(timeoutId);
@@ -54,26 +54,30 @@ async function findCoords() {
     const data = await response.json();
     
     if (data && data.length > 0) {
-      const lat = parseFloat(data[0].lat);
-      const lng = parseFloat(data[0].lon);
+      // 가장 정확한 결과 선택 (도로명 우선 → 구주소)
+      const bestMatch = data.find(item => 
+        item.address.road || 
+        item.address.suburb || 
+        item.address.neighbourhood || 
+        item.type === 'house'
+      ) || data[0];
+      
+      const lat = parseFloat(bestMatch.lat);
+      const lng = parseFloat(bestMatch.lon);
       const coordsText = `${lat.toFixed(6)},${lng.toFixed(6)}`;
       
-      // 캐시 저장
       cache.set(address, coordsText);
-      
       showResult(coordsText);
       
     } else {
-      // 대체 API (BigDataCloud - 초고속)
-      const altResponse = await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=37.5665&longitude=126.9780&localityLanguage=ko`);
       throw new Error('주소 찾기 실패');
     }
     
   } catch (error) {
     if (error.name === 'AbortError') {
-      alert('⏱️ 검색시간 초과 (5초)\n짧은 주소로 다시 시도');
+      alert('⏱️ 검색시간 초과\n더 정확한 주소로 입력');
     } else {
-      alert('❌ 주소 찾기 실패\n\n도로명주소로 정확히 입력:\n"서울특별시 강남구 테헤란로 123"');
+      alert('❌ 주소 찾기 실패\n\n도로명주소 우선 권장:\n"서울특별시 강남구 테헤란로 123"\n\n구주소도 가능:\n"서울시 강남구 역삼동 123-45"');
     }
   } finally {
     btn.disabled = false;
