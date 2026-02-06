@@ -33,7 +33,7 @@ input:focus { outline: none; border-color: #03c75a; box-shadow: 0 0 0 3px rgba(3
 .btn:disabled { background: #ccc; cursor: not-allowed; transform: none; }
 .btn-secondary { background: linear-gradient(135deg, #2196f3, #1976d2); }
 .btn-copy { background: linear-gradient(135deg, #ff9800, #f57c00); padding: 10px 20px; width: auto; margin-left: 10px; }
-.btn.loading::after { content: ''; position: absolute; top: 50%; left: 50%; width: 0; height: 0; background: rgba(255,255,255,0.3); border-radius: 50%; transform: translate(-50%,-50%); animation: spin 1s linear infinite; }
+.btn.loading::after { content: ''; position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s linear infinite; transform: translate(-50%,-50%); }
 @keyframes spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
 
 #result { 
@@ -73,14 +73,14 @@ input:focus { outline: none; border-color: #03c75a; box-shadow: 0 0 0 3px rgba(3
 <body>
 <div class="container">
   <h1>🏠 공실정보 → 네이버 링크 변환기</h1>
-  <p class="subtitle">주소 입력하면 네이버 부동산 + 지도 링크 자동 생성 (확장프로그램 스타일)</p>
+  <p class="subtitle">확장프로그램과 동일한 네이버 부동산 링크 생성</p>
 
   <div class="input-group">
     <input id="address" placeholder="예: 서울 강남구 역삼동 123-45" />
     <button id="convertBtn" class="btn">🔗 네이버 링크 생성</button>
   </div>
 
-  <!-- 매물/거래 유형 선택 (확장프로그램처럼) -->
+  <!-- 확장프로그램과 동일한 매물/거래 유형 선택 -->
   <div style="background: rgba(255,255,255,0.7); padding: 20px; border-radius: 12px; margin-bottom: 20px;">
     <div style="font-weight: 600; margin-bottom: 10px;">📋 매물 유형 (복수 선택)</div>
     <div class="property-types" id="property-types">
@@ -113,7 +113,7 @@ input:focus { outline: none; border-color: #03c75a; box-shadow: 0 0 0 3px rgba(3
       </div>
       
       <div class="link-item">
-        <div class="link-label">🏢 네이버 부동산</div>
+        <div class="link-label">🏢 네이버 부동산 (확장프로그램과 동일)</div>
         <a id="realtorLink" class="link-url" href="#" target="_blank">https://land.naver.com/</a>
       </div>
     </div>
@@ -121,14 +121,17 @@ input:focus { outline: none; border-color: #03c75a; box-shadow: 0 0 0 3px rgba(3
 </div>
 
 <script>
-// === 확장프로그램 스타일 네이버 링크 생성 ===
+// 카카오 API 키 (확장프로그램과 동일)
+const API_KEY = "5aa11b53a04d1bd6f78c87e27a21a400";
+
+// === 확장프로그램과 100% 동일한 네이버 링크 생성 로직 ===
 async function convertToNaverLinks() {
   const address = document.getElementById('address').value.trim();
   const btn = document.getElementById('convertBtn');
   const result = document.getElementById('result');
   
   if (!address) {
-    alert('📝 주소를 입력해주세요!');
+    alert('주소를 입력하세요.');
     return;
   }
   
@@ -139,70 +142,49 @@ async function convertToNaverLinks() {
   result.style.display = 'none';
   
   try {
-    // 네이버 Geocoding API 사용 (확장프로그램처럼)
-    const coords = await getNaverCoordinates(address);
+    // 확장프로그램과 동일한 카카오 Geocoding API 호출
+    const data = await fetch(`https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`, {
+      headers: { 'Authorization': `KakaoAK ${API_KEY}` }
+    }).then(r => r.json());
     
-    // 매물/거래 유형 가져오기 (확장프로그램 로직)
-    const propertyTypes = Array.from(document.querySelectorAll('#property-types .toggle-btn[data-checked="true"]'))
-      .map(btn => btn.dataset.value);
-    const dealType = document.querySelector('#deal-types .toggle-btn.radio[data-checked="true"]')?.dataset.value || 'B2';
+    if (!data.documents || data.documents.length === 0) {
+      throw new Error('주소를 찾을 수 없습니다.');
+    }
     
-    // ✅ 확장프로그램과 동일한 네이버 부동산 링크 생성
-    const realtorLink = `https://new.land.naver.com/offices?ms=${coords.lat},${coords.lng},19&a=${propertyTypes.join(':')}&b=${dealType}`;
-    const mapLink = `https://map.naver.com/p/search/${encodeURIComponent(address)}/address/${coords.lng},${coords.lat},${encodeURIComponent(address)},new?c=18.00,0,0,0,dh&isCorrectAnswer=true`;
+    // 확장프로그램과 동일한 좌표 추출
+    const lat = parseFloat(data.documents[0].y);
+    const lon = parseFloat(data.documents[0].x);
+    
+    // 확장프로그램과 동일한 매물/거래 유형 로직
+    const propertyTypes = Array.from(document.querySelectorAll('.toggle-btn:not(.radio)[data-checked="true"]'))
+                                .map(btn => btn.dataset.value);
+    const dealType = document.querySelector('.toggle-btn.radio[data-checked="true"]')?.dataset.value || "";
+    
+    // ✅ 확장프로그램과 100% 동일한 네이버 부동산 링크 생성
+    let landUrl = `https://new.land.naver.com/offices?ms=${lat},${lon},19`;
+    if (propertyTypes.length) landUrl += `&a=${propertyTypes.join(':')}`;
+    if (dealType) landUrl += `&b=${dealType}`;
+    
+    // 지도 링크도 동일
+    let mapUrl = `https://map.naver.com/p/search/${encodeURIComponent(address)}/address/${lon},${lat},${encodeURIComponent(address)},new?c=18.00,0,0,0,dh&isCorrectAnswer=true`;
     
     // 결과 표시
-    document.getElementById('realtorLink').href = realtorLink;
-    document.getElementById('realtorLink').textContent = realtorLink;
-    document.getElementById('mapLink').href = mapLink;
-    document.getElementById('mapLink').textContent = mapLink;
+    document.getElementById('realtorLink').href = landUrl;
+    document.getElementById('realtorLink').textContent = landUrl;
+    document.getElementById('mapLink').href = mapUrl;
+    document.getElementById('mapLink').textContent = mapUrl;
     
     result.className = '';
     result.style.display = 'block';
     result.scrollIntoView({ behavior: 'smooth' });
     
   } catch (error) {
-    console.error('변환 오류:', error);
-    
-    // 대체 링크 (주소 검색)
-    const encoded = encodeURIComponent(address);
-    const fallbackMap = `https://map.naver.com/p/search/${encoded}`;
-    const fallbackRealtor = `https://new.land.naver.com/offices?query=${encoded}`;
-    
-    document.getElementById('mapLink').href = fallbackMap;
-    document.getElementById('mapLink').textContent = fallbackMap;
-    document.getElementById('realtorLink').href = fallbackRealtor;
-    document.getElementById('realtorLink').textContent = fallbackRealtor;
-    
-    result.className = 'error';
-    result.querySelector('.result-header strong').textContent = '⚠️ 대체 링크 생성됨';
-    result.style.display = 'block';
-    result.scrollIntoView({ behavior: 'smooth' });
+    alert("주소 변환 오류: " + error.message);
   } finally {
     btn.disabled = false;
     btn.classList.remove('loading');
     btn.innerHTML = '🔗 네이버 링크 생성';
   }
-}
-
-// 네이버 Geocoding API (카카오와 동일한 형식)
-async function getNaverCoordinates(address) {
-  const API_KEY = '5aa11b53a04d1bd6f78c87e27a21a400'; // 제공된 키 사용
-  const url = `https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`;
-  
-  const response = await fetch(url, {
-    headers: { 'Authorization': `KakaoAK ${API_KEY}` }
-  });
-  
-  const data = await response.json();
-  if (!data.documents?.length) throw new Error('주소 찾기 실패');
-  
-  const result = data.documents[0];
-  return {
-    lat: result.y,
-    lng: result.x,
-    fullAddress: result.address_name || address
-  };
 }
 
 // 토글 버튼 이벤트 (확장프로그램과 동일)
@@ -256,7 +238,7 @@ document.addEventListener('DOMContentLoaded', function() {
   
   document.getElementById('copyBtn').addEventListener('click', copyAllLinks);
   
-  // URL 파라미터 자동 실행 (모든 오타 지원)
+  // URL 파라미터 자동 실행
   const params = new URLSearchParams(location.search);
   const addr = params.get('address') || params.get('addres') || params.get('addr');
   if (addr) {
