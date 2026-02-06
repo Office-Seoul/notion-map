@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <title>주소→좌표</title>
-<!-- Geocoding 모듈 추가됨! -->
-<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=q581f6wc1o&submodules=geocoder"></script>
+<!-- Geocoding 모듈 추가됨! 클라이언트 ID와 SECRET 모두 포함 -->
+<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=q581f6wc1o&ncpClientSecret=0W7Ouyl18C6u2N8B5gJ93MQfj0za0feYNLYOYF6c&submodules=geocoder"></script>
 <style>
 * {margin:0;padding:0;box-sizing:border-box;}
 body {font-family:'Segoe UI',sans-serif;padding:20px;max-width:600px;margin:auto;}
@@ -15,10 +15,18 @@ button:hover {background:#04d764;}
 button:disabled {background:#ccc;cursor:not-allowed;}
 .result {background:#f0f9f4;padding:20px;border-radius:12px;border-left:5px solid #03c75a;}
 .coords {background:#333;color:#0f0;padding:12px;border-radius:6px;font-family:monospace;word-break:break-all;margin:10px 0;}
+.warning {background:#fff3cd;padding:15px;border-radius:8px;border-left:5px solid #ffc107;margin:20px 0;color:#856404;}
 </style>
 </head>
 <body>
 <h1 style="color:#03c75a;margin-bottom:20px;">📍 주소 → 좌표 변환</h1>
+
+<div class="warning">
+⚠️ <strong>보안 주의:</strong> <code>ncpClientSecret</code>을 추가했습니다. 
+<strong>실제 배포시에는 본인의 네이버 클라우드 플랫폼에서 발급받은 Client Secret으로 교체</strong>하세요.
+<br>네이버 클라우드 콘솔 → My Project → Maps API → Client Secret 확인
+</div>
+
 <input id="address" placeholder="예: 서울특별시 강남구 테헤란로 123">
 <button onclick="findCoords()">🔍 좌표 찾기 & 복사</button>
 <div id="map"></div>
@@ -44,7 +52,7 @@ function findCoords() {
   btn.disabled=true;
   btn.innerHTML='⏳ 찾는중...';
   
-  // Geocoding 서비스 호출
+  // Geocoding 서비스 호출 (Client Secret이 포함된 스크립트 로드됨)
   naver.maps.Service.geocode({
     query: address
   }, function(status, response) {
@@ -58,7 +66,7 @@ function findCoords() {
       showMap(lat, lng, result.roadAddress || result.jibunAddress);
       copyToClipboard(lat, lng);
     } else {
-      alert('주소 찾기 실패!\n도로명주소로 정확히 입력해주세요.\n\n예: "서울특별시 강남구 테헤란로 123"');
+      alert('주소 찾기 실패!\n도로명주소로 정확히 입력해주세요.\n\n예: "서울특별시 강남구 테헤란로 123"\n\nClient Secret이 올바르게 설정되었는지 확인해주세요.');
     }
   });
 }
