@@ -2,168 +2,74 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>주소→좌표 (✅ 완벽 작동 - CORS 완전 해결)</title>
-<style>
-* {margin:0;padding:0;box-sizing:border-box;}
-body {font-family:'Segoe UI',sans-serif;padding:20px;max-width:600px;margin:auto;}
-#map {width:100%;height:400px;border-radius:12px;margin:20px 0;}
-input {width:100%;padding:15px;border:2px solid #ddd;border-radius:8px;font-size:16px;}
-button {width:100%;background:#03c75a;color:white;border:none;padding:15px;border-radius:8px;font-size:16px;font-weight:500;cursor:pointer;margin:10px 0;}
-button:hover {background:#04d764;}
-button:disabled {background:#ccc;cursor:not-allowed;}
-.result {background:#f0f9f4;padding:20px;border-radius:12px;border-left:5px solid #03c75a;}
-.coords {background:#333;color:#0f0;padding:12px;border-radius:6px;font-family:monospace;word-break:break-all;margin:10px 0;}
-.success {background:#d4edda;padding:15px;border-radius:8px;border-left:5px solid #28a745;margin:10px 0;color:#155724;}
-.loader {text-align:center;padding:40px;color:#666;}
-.map-placeholder {height:400px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-direction:column;color:white;position:relative;overflow:hidden;}
-</style>
+<title>네이버 지도 API 테스트</title>
+<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=q581f6wc1o&ncpClientSecret=0W7Ouyl18C6u2N8B5gJ93MQfj0za0feYNLYOYF6c&submodules=geocoder"></script>
 </head>
 <body>
-<h1 style="color:#03c75a;margin-bottom:20px;">📍 주소 → 좌표 변환</h1>
+<h1>네이버 지도 API 테스트</h1>
 
-<div class="success">
-✅ <strong>완벽 작동! 프록시 완전 제거</strong><br>
-네이버 지도 JS API + 로컬 테스트 완벽 지원
-</div>
+<div id="status" style="display:none;"></div>
 
-<input id="address" placeholder="예: 서울특별시 강남구 테헤란로 123">
-<button onclick="findCoords()">🔍 좌표 찾기 & 복사</button>
-<div id="map" class="loader">🚀 준비 완료! 주소를 입력해보세요</div>
-<div id="result" style="display:none;" class="result">
-<strong>✅ 좌표 복사 완료!</strong><br>
-<div id="coords" class="coords"></div>
-<small>노션 Lat/Lng에 붙여넣기: <code>37.5665</code> <code>126.9780</code></small>
+<input id="address" placeholder="주소 입력">
+<button onclick="testGeocode()">테스트</button>
+
+<div id="map" style="height:400px;background:#f0f0f0;">지도 로딩중...</div>
+
+<div id="result" style="display:none;">
+  <strong>좌표:</strong>
+  <div id="coords"></div>
 </div>
 
 <script>
-// 🔥 모든 외부 API 의존성 제거 + 네이버 지도 JS API
-const CLIENT_ID = 'q581f6wc1o';
-const CLIENT_SECRET = '0W7Ouyl18C6u2N8B5gJ93MQfj0za0feYNLYOYF6c';
-
-let naverMapsLoaded = false;
-
-function loadNaverMaps() {
-  return new Promise((resolve) => {
-    if (naverMapsLoaded || window.naver?.maps) {
-      naverMapsLoaded = true;
-      resolve();
-      return;
-    }
-    
-    const script = document.createElement('script');
-    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${CLIENT_ID}&ncpClientSecret=${CLIENT_SECRET}&submodules=geocoder`;
-    script.async = true;
-    script.onload = () => {
-      naverMapsLoaded = true;
-      resolve();
-    };
-    script.onerror = () => {
-      console.log('네이버 지도 API 로드 실패 - 기본 모드로 실행');
-      resolve(); // 실패해도 진행
-    };
-    document.head.appendChild(script);
-  });
+function showStatus(msg, isError = false) {
+  const status = document.getElementById('status');
+  status.textContent = msg;
+  status.style.color = isError ? 'red' : 'green';
+  status.style.display = 'block';
 }
 
-async function findCoords() {
+function testGeocode() {
   const address = document.getElementById('address').value.trim();
   if (!address) return alert('주소를 입력하세요!');
   
   const btn = document.querySelector('button');
   btn.disabled = true;
-  btn.innerHTML = '🌍 위치 검색중...';
+  btn.textContent = '검색중...';
+  showStatus('테스트 중...', false);
   
-  try {
-    // 네이버 지도 API 시도
-    await loadNaverMaps();
-    
-    if (window.naver?.maps?.Service) {
-      // 네이버 지도 API 사용
-      const coords = await new Promise((resolve, reject) => {
-        naver.maps.Service.geocode({
-          query: address
-        }, function(status, response) {
-          if (status === naver.maps.Service.Status.OK && response.v2.addresses[0]) {
-            const result = response.v2.addresses[0];
-            resolve({
-              lat: parseFloat(result.y),
-              lng: parseFloat(result.x),
-              address: result.roadAddress || result.jibunAddress
-            });
-          } else {
-            reject(new Error('네이버 API 주소 검색 실패'));
-          }
-        });
-      });
-      showNaverMap(coords.lat, coords.lng, coords.address);
-      copyToClipboard(coords.lat, coords.lng);
-    } else {
-      // 네이버 API 실패시 Google Maps 좌표 직접 변환 (대략적)
-      const googleCoords = await getGoogleCoords(address);
-      showGoogleMap(googleCoords.lat, googleCoords.lng, address);
-      copyToClipboard(googleCoords.lat, googleCoords.lng);
-    }
-  } catch (error) {
-    console.error('Geocoding 오류:', error);
-    alert('❌ 자동 좌표 변환\n\n정확한 도로명주소로 입력해주세요!\n예: "서울특별시 강남구 테헤란로 123"');
-    // 기본 서울 좌표 표시
-    showGoogleMap(37.5665, 126.9780, address);
-    copyToClipboard(37.5665, 126.9780);
-  } finally {
+  naver.maps.Service.geocode({
+    query: address
+  }, function(status, response) {
     btn.disabled = false;
-    btn.innerHTML = '🔍 좌표 찾기 & 복사';
-  }
-}
-
-// 네이버 지도 표시
-function showNaverMap(lat, lng, addressName) {
-  const mapContainer = document.getElementById('map');
-  const mapOption = {
-    center: new naver.maps.LatLng(lat, lng),
-    zoom: 17
-  };
-  const map = new naver.maps.Map(mapContainer, mapOption);
-  
-  new naver.maps.Marker({
-    position: new naver.maps.LatLng(lat, lng),
-    map: map,
-    title: addressName
+    btn.textContent = '테스트';
+    
+    if (status === naver.maps.Service.Status.OK) {
+      const result = response.v2.addresses[0];
+      const lat = parseFloat(result.y);
+      const lng = parseFloat(result.x);
+      
+      showStatus('✅ API 정상 작동!', false);
+      document.getElementById('coords').textContent = `${lat.toFixed(6)}, ${lng.toFixed(6)}`;
+      document.getElementById('result').style.display = 'block';
+      
+      const map = new naver.maps.Map('map', {
+        center: new naver.maps.LatLng(lat, lng),
+        zoom: 17
+      });
+      
+      new naver.maps.Marker({
+        position: new naver.maps.LatLng(lat, lng),
+        map: map
+      });
+      
+    } else {
+      showStatus(`❌ 실패: ${status}`, true);
+    }
   });
-}
-
-// Google 지도 임베드
-function showGoogleMap(lat, lng, addressName) {
-  const mapContainer = document.getElementById('map');
-  mapContainer.innerHTML = `
-    <iframe width="100%" height="400" frameborder="0" style="border-radius:12px;"
-      src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3241.1!2d${lng}!3d${lat}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2z${lat.toFixed(6)},${lng.toFixed(6)}!5e0!3m2!1sko!2skr!4v1630000000000" 
-      allowfullscreen loading="lazy">
-    </iframe>
-  `;
-}
-
-// 좌표 복사
-function copyToClipboard(lat, lng) {
-  const text = `${lat.toFixed(6)},${lng.toFixed(6)}`;
-  navigator.clipboard.writeText(text).then(() => {
-    document.getElementById('coords').textContent = text;
-    document.getElementById('result').style.display = 'block';
-    document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
-  }).catch(() => {
-    alert(`좌표: ${text}\n\nCtrl+C로 복사하세요!`);
-  });
-}
-
-// URL 파라미터 자동 실행
-const urlParams = new URLSearchParams(location.search);
-const addr = urlParams.get('address');
-if (addr) {
-  document.getElementById('address').value = decodeURIComponent(addr);
-  setTimeout(findCoords, 1000);
 }
 
 document.getElementById('address').addEventListener('keypress', e => {
-  if (e.key === 'Enter') findCoords();
+  if (e.key === 'Enter') testGeocode();
 });
 </script>
 </body>
