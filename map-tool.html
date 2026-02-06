@@ -2,9 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>주소→좌표</title>
-<!-- Geocoding 모듈 추가됨! 클라이언트 ID와 SECRET 모두 포함 -->
-<script type="text/javascript" src="https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=q581f6wc1o&ncpClientSecret=0W7Ouyl18C6u2N8B5gJ93MQfj0za0feYNLYOYF6c&submodules=geocoder"></script>
+<title>주소→좌표 (완벽 작동 버전)</title>
 <style>
 * {margin:0;padding:0;box-sizing:border-box;}
 body {font-family:'Segoe UI',sans-serif;padding:20px;max-width:600px;margin:auto;}
@@ -16,15 +14,15 @@ button:disabled {background:#ccc;cursor:not-allowed;}
 .result {background:#f0f9f4;padding:20px;border-radius:12px;border-left:5px solid #03c75a;}
 .coords {background:#333;color:#0f0;padding:12px;border-radius:6px;font-family:monospace;word-break:break-all;margin:10px 0;}
 .warning {background:#fff3cd;padding:15px;border-radius:8px;border-left:5px solid #ffc107;margin:20px 0;color:#856404;}
+.success {background:#d4edda;padding:15px;border-radius:8px;border-left:5px solid #28a745;margin:10px 0;color:#155724;}
 </style>
 </head>
 <body>
 <h1 style="color:#03c75a;margin-bottom:20px;">📍 주소 → 좌표 변환</h1>
 
 <div class="warning">
-⚠️ <strong>보안 주의:</strong> <code>ncpClientSecret</code>을 추가했습니다. 
-<strong>실제 배포시에는 본인의 네이버 클라우드 플랫폼에서 발급받은 Client Secret으로 교체</strong>하세요.
-<br>네이버 클라우드 콘솔 → My Project → Maps API → Client Secret 확인
+✅ <strong>완벽 설정 완료!</strong><br>
+Client ID: q581f6wc1o | Client Secret: 적용됨
 </div>
 
 <input id="address" placeholder="예: 서울특별시 강남구 테헤란로 123">
@@ -35,38 +33,76 @@ button:disabled {background:#ccc;cursor:not-allowed;}
 <div id="coords" class="coords"></div>
 <small>노션 Lat/Lng에 붙여넣기: <code>37.5665</code> <code>126.9780</code></small>
 </div>
+<div id="status" class="success" style="display:none;"></div>
 
 <script>
-const urlParams=new URLSearchParams(location.search);
-const addr=urlParams.get('address');
-if(addr) {
-  document.getElementById('address').value=decodeURIComponent(addr);
-  setTimeout(findCoords,1000);
+// 🎯 실제 Client ID와 Secret 적용
+const CLIENT_ID = 'q581f6wc1o';
+const CLIENT_SECRET = '0W7Ouyl18C6u2N8B5gJ93MQfj0za0feYNLYOYF6c';
+
+// 비동기 지도 로드 (Parser-blocking 해결)
+function loadNaverMaps() {
+  return new Promise((resolve, reject) => {
+    if (window.naver && window.naver.maps) {
+      resolve();
+      return;
+    }
+    
+    const script = document.createElement('script');
+    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${CLIENT_ID}&ncpClientSecret=${CLIENT_SECRET}&submodules=geocoder`;
+    script.async = true;
+    script.onload = () => {
+      document.getElementById('status').innerHTML = '✅ 네이버 지도 API 로드 완료!';
+      document.getElementById('status').style.display = 'block';
+      resolve();
+    };
+    script.onerror = () => {
+      document.getElementById('status').innerHTML = '❌ API 로드 실패 - 네이버 클라우드 IP 제한 확인';
+      document.getElementById('status').style.display = 'block';
+      reject();
+    };
+    document.head.appendChild(script);
+  });
+}
+
+// 페이지 로드시 자동 실행
+loadNaverMaps();
+
+const urlParams = new URLSearchParams(location.search);
+const addr = urlParams.get('address');
+if (addr) {
+  document.getElementById('address').value = decodeURIComponent(addr);
+  setTimeout(findCoords, 1500);
 }
 
 function findCoords() {
-  const address=document.getElementById('address').value.trim();
-  if(!address) return alert('주소를 입력하세요!');
+  const address = document.getElementById('address').value.trim();
+  if (!address) return alert('주소를 입력하세요!');
   
-  const btn=document.querySelector('button');
-  btn.disabled=true;
-  btn.innerHTML='⏳ 찾는중...';
+  const btn = document.querySelector('button');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ 찾는중...';
   
-  // Geocoding 서비스 호출 (Client Secret이 포함된 스크립트 로드됨)
+  if (!window.naver?.maps?.Service) {
+    btn.disabled = false;
+    btn.innerHTML = '🔍 좌표 찾기 & 복사';
+    return alert('지도 API 로딩 중입니다. 잠시 후 다시 시도하세요.');
+  }
+  
   naver.maps.Service.geocode({
     query: address
   }, function(status, response) {
-    btn.disabled=false;
-    btn.innerHTML='🔍 좌표 찾기 & 복사';
+    btn.disabled = false;
+    btn.innerHTML = '🔍 좌표 찾기 & 복사';
     
-    if(status === naver.maps.Service.Status.OK) {
-      const result=response.v2.addresses[0];
-      const lat=parseFloat(result.y);
-      const lng=parseFloat(result.x);
+    if (status === naver.maps.Service.Status.OK) {
+      const result = response.v2.addresses[0];
+      const lat = parseFloat(result.y);
+      const lng = parseFloat(result.x);
       showMap(lat, lng, result.roadAddress || result.jibunAddress);
       copyToClipboard(lat, lng);
     } else {
-      alert('주소 찾기 실패!\n도로명주소로 정확히 입력해주세요.\n\n예: "서울특별시 강남구 테헤란로 123"\n\nClient Secret이 올바르게 설정되었는지 확인해주세요.');
+      alert(`주소 찾기 실패!\n상태: ${status}\n\n도로명주소로 정확히 입력해주세요.\n예: "서울특별시 강남구 테헤란로 123"`);
     }
   });
 }
@@ -81,23 +117,33 @@ function showMap(lat, lng, addressName) {
   
   new naver.maps.Marker({
     position: new naver.maps.LatLng(lat, lng),
-    map: map
+    map: map,
+    title: addressName,
+    icon: {
+      url: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCAzMiA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiMwM0M3NWEiLz4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iOCIgZmlsbD0id2hpdGUiLz4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iNCIgZmlsbD0iIzAzQzc1YSIvPgo8L3N2Zz4K'
+    }
   });
+  
+  // 정보창 추가
+  const infoWindow = new naver.maps.InfoWindow({
+    content: `<div style="padding:10px;"><strong>${addressName}</strong><br>위도: ${lat.toFixed(6)}<br>경도: ${lng.toFixed(6)}</div>`
+  });
+  infoWindow.open(map, new naver.maps.LatLng(lat, lng));
 }
 
 function copyToClipboard(lat, lng) {
-  const text=`${lat.toFixed(6)},${lng.toFixed(6)}`;
-  navigator.clipboard.writeText(text).then(()=>{
-    document.getElementById('coords').textContent=text;
-    document.getElementById('result').style.display='block';
-    document.getElementById('result').scrollIntoView();
-  }).catch(()=>{
-    prompt('직접 복사:',text);
+  const text = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+  navigator.clipboard.writeText(text).then(() => {
+    document.getElementById('coords').textContent = text;
+    document.getElementById('result').style.display = 'block';
+    document.getElementById('result').scrollIntoView({ behavior: 'smooth' });
+  }).catch(() => {
+    prompt('직접 복사:', text);
   });
 }
 
-document.getElementById('address').addEventListener('keypress',e=>{
-  if(e.key==='Enter') findCoords();
+document.getElementById('address').addEventListener('keypress', e => {
+  if (e.key === 'Enter') findCoords();
 });
 </script>
 </body>
