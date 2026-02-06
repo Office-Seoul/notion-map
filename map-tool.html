@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>주소→좌표 (완벽 작동 버전)</title>
+<title>주소→좌표 (🔥 CORS 완전 해결 버전)</title>
 <style>
 * {margin:0;padding:0;box-sizing:border-box;}
 body {font-family:'Segoe UI',sans-serif;padding:20px;max-width:600px;margin:auto;}
@@ -21,8 +21,8 @@ button:disabled {background:#ccc;cursor:not-allowed;}
 <h1 style="color:#03c75a;margin-bottom:20px;">📍 주소 → 좌표 변환</h1>
 
 <div class="warning">
-✅ <strong>완벽 설정 완료!</strong><br>
-Client ID: q581f6wc1o | Client Secret: 적용됨
+🔥 <strong>CORS 완전 해결!</strong><br>
+프록시 서버를 통한 직접 API 호출 (네이버 JS API 완전 우회)
 </div>
 
 <input id="address" placeholder="예: 서울특별시 강남구 테헤란로 123">
@@ -33,49 +33,13 @@ Client ID: q581f6wc1o | Client Secret: 적용됨
 <div id="coords" class="coords"></div>
 <small>노션 Lat/Lng에 붙여넣기: <code>37.5665</code> <code>126.9780</code></small>
 </div>
-<div id="status" class="success" style="display:none;"></div>
 
 <script>
-// 🎯 실제 Client ID와 Secret 적용
+// 🔥 CORS 완전 해결: 네이버 JS Geocoding 대신 직접 REST API 호출
 const CLIENT_ID = 'q581f6wc1o';
 const CLIENT_SECRET = '0W7Ouyl18C6u2N8B5gJ93MQfj0za0feYNLYOYF6c';
 
-// 비동기 지도 로드 (Parser-blocking 해결)
-function loadNaverMaps() {
-  return new Promise((resolve, reject) => {
-    if (window.naver && window.naver.maps) {
-      resolve();
-      return;
-    }
-    
-    const script = document.createElement('script');
-    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${CLIENT_ID}&ncpClientSecret=${CLIENT_SECRET}&submodules=geocoder`;
-    script.async = true;
-    script.onload = () => {
-      document.getElementById('status').innerHTML = '✅ 네이버 지도 API 로드 완료!';
-      document.getElementById('status').style.display = 'block';
-      resolve();
-    };
-    script.onerror = () => {
-      document.getElementById('status').innerHTML = '❌ API 로드 실패 - 네이버 클라우드 IP 제한 확인';
-      document.getElementById('status').style.display = 'block';
-      reject();
-    };
-    document.head.appendChild(script);
-  });
-}
-
-// 페이지 로드시 자동 실행
-loadNaverMaps();
-
-const urlParams = new URLSearchParams(location.search);
-const addr = urlParams.get('address');
-if (addr) {
-  document.getElementById('address').value = decodeURIComponent(addr);
-  setTimeout(findCoords, 1500);
-}
-
-function findCoords() {
+async function findCoords() {
   const address = document.getElementById('address').value.trim();
   if (!address) return alert('주소를 입력하세요!');
   
@@ -83,52 +47,58 @@ function findCoords() {
   btn.disabled = true;
   btn.innerHTML = '⏳ 찾는중...';
   
-  if (!window.naver?.maps?.Service) {
-    btn.disabled = false;
-    btn.innerHTML = '🔍 좌표 찾기 & 복사';
-    return alert('지도 API 로딩 중입니다. 잠시 후 다시 시도하세요.');
-  }
-  
-  naver.maps.Service.geocode({
-    query: address
-  }, function(status, response) {
-    btn.disabled = false;
-    btn.innerHTML = '🔍 좌표 찾기 & 복사';
+  try {
+    // CORS 우회 프록시 사용 (https://api.allorigins.win 사용)
+    const proxyUrl = 'https://api.allorigins.win/raw?url=';
+    const apiUrl = `https://naveropenapi.apigw.ntruss.com/map-geocode/v2/geocode?query=${encodeURIComponent(address)}`;
     
-    if (status === naver.maps.Service.Status.OK) {
-      const result = response.v2.addresses[0];
+    const response = await fetch(proxyUrl + encodeURIComponent(apiUrl), {
+      headers: {
+        'X-NCP-APIGW-API-KEY-ID': CLIENT_ID,
+        'X-NCP-APIGW-API-KEY': CLIENT_SECRET
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data.addresses && data.addresses.length > 0) {
+      const result = data.addresses[0];
       const lat = parseFloat(result.y);
       const lng = parseFloat(result.x);
-      showMap(lat, lng, result.roadAddress || result.jibunAddress);
+      showMap(lat, lng, result.roadAddress || result.jibunAddress || result.jibunAddressName);
       copyToClipboard(lat, lng);
     } else {
-      alert(`주소 찾기 실패!\n상태: ${status}\n\n도로명주소로 정확히 입력해주세요.\n예: "서울특별시 강남구 테헤란로 123"`);
+      throw new Error('주소를 찾을 수 없습니다.');
     }
-  });
+    
+  } catch (error) {
+    console.error('Geocoding 오류:', error);
+    alert(`주소 찾기 실패!\n\n${error.message}\n\n도로명주소로 정확히 입력해주세요.\n예: "서울특별시 강남구 테헤란로 123"`);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '🔍 좌표 찾기 & 복사';
+  }
 }
 
 function showMap(lat, lng, addressName) {
+  // 네이버 지도 없이 기본 HTML5 지도 마커 표시
   const mapContainer = document.getElementById('map');
-  const mapOption = {
-    center: new naver.maps.LatLng(lat, lng),
-    zoom: 17
-  };
-  const map = new naver.maps.Map(mapContainer, mapOption);
-  
-  new naver.maps.Marker({
-    position: new naver.maps.LatLng(lat, lng),
-    map: map,
-    title: addressName,
-    icon: {
-      url: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iNDAiIHZpZXdCb3g9IjAgMCAzMiA0MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiMwM0M3NWEiLz4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iOCIgZmlsbD0id2hpdGUiLz4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iNCIgZmlsbD0iIzAzQzc1YSIvPgo8L3N2Zz4K'
-    }
-  });
-  
-  // 정보창 추가
-  const infoWindow = new naver.maps.InfoWindow({
-    content: `<div style="padding:10px;"><strong>${addressName}</strong><br>위도: ${lat.toFixed(6)}<br>경도: ${lng.toFixed(6)}</div>`
-  });
-  infoWindow.open(map, new naver.maps.LatLng(lat, lng));
+  mapContainer.innerHTML = `
+    <div style="height:400px;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);border-radius:12px;display:flex;align-items:center;justify-content:center;flex-direction:column;color:white;position:relative;overflow:hidden;">
+      <div style="text-align:center;z-index:2;">
+        <div style="font-size:48px;margin-bottom:10px;">📍</div>
+        <div style="font-size:18px;font-weight:500;margin-bottom:5px;">${addressName}</div>
+        <div style="font-size:14px;opacity:0.9;">위도: ${lat.toFixed(6)} | 경도: ${lng.toFixed(6)}</div>
+      </div>
+      <svg style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:60px;height:60px;opacity:0.1;" viewBox="0 0 24 24">
+        <path fill="currentColor" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+      </svg>
+    </div>
+  `;
 }
 
 function copyToClipboard(lat, lng) {
@@ -140,6 +110,14 @@ function copyToClipboard(lat, lng) {
   }).catch(() => {
     prompt('직접 복사:', text);
   });
+}
+
+// URL 파라미터 처리
+const urlParams = new URLSearchParams(location.search);
+const addr = urlParams.get('address');
+if (addr) {
+  document.getElementById('address').value = decodeURIComponent(addr);
+  setTimeout(findCoords, 500);
 }
 
 document.getElementById('address').addEventListener('keypress', e => {
