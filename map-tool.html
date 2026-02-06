@@ -6,54 +6,67 @@
     <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=5aa11b53a04d1bb6f78c87e27a21a400&libraries=services"></script>
     <style>
         body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; background: #f0f2f5; }
-        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; width: 90%; max-width: 350px; }
-        .btn { background: #fee500; border: none; padding: 15px; width: 100%; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; margin-top: 10px; }
-        .btn:hover { background: #fada00; }
-        .addr { font-size: 14px; color: #666; margin-bottom: 10px; word-break: break-all; }
-        .status { font-size: 12px; color: #007bff; margin-top: 10px; height: 18px; }
+        .card { background: white; padding: 25px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; width: 320px; }
+        .btn { background: #fee500; border: none; padding: 18px; width: 100%; border-radius: 10px; cursor: pointer; font-weight: bold; font-size: 16px; transition: 0.3s; }
+        .btn:hover { background: #fada00; transform: translateY(-2px); }
+        .info { font-size: 13px; color: #888; margin-top: 15px; line-height: 1.5; }
+        #addr-display { font-weight: bold; color: #333; margin-bottom: 15px; word-break: keep-all; }
     </style>
 </head>
 <body>
     <div class="card">
-        <div id="addr-display" class="addr">주소를 불러오는 중...</div>
-        <button class="btn" onclick="startProcess()">📍 지도 열기 & 좌표 복사</button>
-        <div id="status-msg" class="status"></div>
+        <div id="addr-display">주소를 확인 중입니다...</div>
+        <button class="btn" onclick="execute()">📍 지도 열기 & 좌표 처리</button>
+        <div class="info" id="status">버튼을 누르면 좌표 복사 후<br>네이버 지도/부동산이 열립니다.</div>
     </div>
 
     <script>
         const params = new URLSearchParams(window.location.search);
         const addr = params.get('address');
-        const type = params.get('type') || 'SG'; // 매물종류 기본값
-        const deal = params.get('deal') || 'B2'; // 거래구분 기본값
+        const existingCoord = params.get('coord'); // 노션에 이미 좌표가 있다면 가져옴
+        const type = params.get('type') || 'SG';
+        const deal = params.get('deal') || 'B2';
 
         if (addr) document.getElementById('addr-display').innerText = addr;
 
-        function startProcess() {
-            if (!addr) return alert("주소가 없습니다.");
-            const status = document.getElementById('status-msg');
+        function openMaps(lat, lon) {
+            // 네이버 지도 (주소 검색 결과)
+            const naverMap = `https://map.naver.com/p/search/${encodeURIComponent(addr)}`;
+            // 네이버 부동산 (좌표 기준 상세 페이지)
+            const naverLand = `https://new.land.naver.com/offices?ms=${lat},${lon},16&a=${type}&b=${deal}`;
             
-            const geocoder = new kakao.maps.services.Geocoder();
-            geocoder.addressSearch(addr, function(result, success) {
-                if (success === kakao.maps.services.Status.OK) {
-                    const lat = result[0].y; // 위도
-                    const lon = result[0].x; // 경도
-                    const coordText = lat + ", " + lon;
+            window.open(naverMap, '_blank');
+            window.open(naverLand, '_blank');
+        }
 
-                    // 1. 클립보드에 좌표 복사
-                    navigator.clipboard.writeText(coordText).then(() => {
-                        status.innerText = "✅ 좌표 복사 완료! 노션에 붙여넣으세요.";
-                        
-                        // 2. 네이버 지도 & 부동산 창 열기
-                        const naverMap = `https://map.naver.com/p/search/${encodeURIComponent(addr)}`;
-                        const naverLand = `https://new.land.naver.com/offices?ms=${lat},${lon},16&a=${type}&b=${deal}`;
-                        
-                        window.open(naverMap, '_blank');
-                        window.open(naverLand, '_blank');
-                    });
-                } else {
-                    alert("좌표를 찾을 수 없는 주소입니다.");
-                }
-            });
+        function execute() {
+            if (!addr) return alert("주소가 없습니다.");
+            const statusDisp = document.getElementById('status');
+
+            // 1. 이미 노션에 좌표가 있는 경우 바로 지도 열기
+            if (existingCoord && existingCoord.includes(",")) {
+                const [lat, lon] = existingCoord.split(",").map(c => c.trim());
+                statusDisp.innerHTML = "✅ 기존 좌표로 지도를 엽니다.";
+                openMaps(lat, lon);
+            } 
+            // 2. 좌표가 없는 경우 검색 후 복사 및 지도 열기
+            else {
+                const geocoder = new kakao.maps.services.Geocoder();
+                geocoder.addressSearch(addr, function(result, status) {
+                    if (status === kakao.maps.services.Status.OK) {
+                        const lat = result[0].y;
+                        const lon = result[0].x;
+                        const coordText = lat + ", " + lon;
+
+                        navigator.clipboard.writeText(coordText).then(() => {
+                            statusDisp.innerHTML = "<b style='color:red'>좌표 복사 완료!</b><br>노션 좌표 칸에 Ctrl+V 하세요.<br>잠시 후 지도가 열립니다.";
+                            setTimeout(() => openMaps(lat, lon), 1000);
+                        });
+                    } else {
+                        alert("주소를 찾을 수 없습니다. 주소가 정확한지 확인해 주세요.");
+                    }
+                });
+            }
         }
     </script>
 </body>
