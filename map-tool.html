@@ -16,26 +16,9 @@ body {
 h1 { text-align: center; color: #333; margin-bottom: 10px; font-size: 2em; }
 .subtitle { text-align: center; color: #666; margin-bottom: 30px; font-size: 1.1em; }
 
-.input-section, .types-section { margin-bottom: 25px; }
-input { 
-  width: 100%; padding: 18px; font-size: 16px; border: 2px solid #e1e5e9; border-radius: 12px; 
-  transition: all 0.3s; background: #fff; margin-bottom: 15px;
-}
-input:focus { outline: none; border-color: #03c75a; box-shadow: 0 0 0 3px rgba(3,199,90,0.1); }
-
-.btn { 
-  width: 100%; padding: 20px; font-size: 18px; font-weight: 600; 
-  background: linear-gradient(135deg, #03c75a, #02a84a); 
-  color: white; border: none; border-radius: 12px; cursor: pointer; 
-  transition: all 0.3s; position: relative; overflow: hidden;
-}
-.btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(3,199,90,0.4); }
-.btn:disabled { background: #ccc; cursor: not-allowed; transform: none; }
-.btn.loading::after { content: ''; position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s linear infinite; transform: translate(-50%,-50%); }
-@keyframes spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
-
+.types-section, .input-section { margin-bottom: 25px; }
+.property-title, .deal-title { font-weight: 600; margin-bottom: 12px; font-size: 15px; color: #333; }
 .property-types, .deal-types { display: flex; flex-wrap: wrap; gap: 10px; margin: 15px 0; padding: 15px; background: rgba(255,255,255,0.5); border-radius: 12px; }
-.property-title, .deal-title { font-weight: 600; margin-bottom: 10px; font-size: 15px; color: #333; }
 .toggle-btn { 
   padding: 10px 14px; border: 2px solid #ddd; background: white; border-radius: 20px; 
   cursor: pointer; font-size: 13px; font-weight: 500; transition: all 0.2s; white-space: nowrap;
@@ -44,17 +27,34 @@ input:focus { outline: none; border-color: #03c75a; box-shadow: 0 0 0 3px rgba(3
 .toggle-btn:hover:not([data-checked="true"]) { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
 .radio-btns .toggle-btn { border-radius: 8px; }
 
+input { 
+  width: 100%; padding: 20px; font-size: 18px; border: 2px solid #e1e5e9; border-radius: 12px; 
+  transition: all 0.3s; background: #fff; margin-bottom: 15px;
+}
+input:focus { outline: none; border-color: #03c75a; box-shadow: 0 0 0 3px rgba(3,199,90,0.1); }
+
+.btn { 
+  width: 100%; padding: 22px; font-size: 18px; font-weight: 600; 
+  background: linear-gradient(135deg, #03c75a, #02a84a); 
+  color: white; border: none; border-radius: 12px; cursor: pointer; 
+  transition: all 0.3s; position: relative; overflow: hidden;
+}
+.btn:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(3,199,90,0.4); }
+.btn:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+.btn.loading::after { content: ''; position: absolute; top: 50%; left: 50%; width: 20px; height: 20px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s linear infinite; transform: translate(-50%,-50%); }
+@keyframes spin { to { transform: translate(-50%,-50%) rotate(360deg); } }
+
 .success-msg { 
   display: none; background: linear-gradient(135deg, #e8f5e8, #d4edda); 
-  border: 2px solid #28a745; border-radius: 12px; padding: 20px; text-align: center;
-  margin-top: 20px; color: #155724; font-weight: 600;
+  border: 2px solid #28a745; border-radius: 12px; padding: 25px; text-align: center;
+  margin-top: 20px; color: #155724; font-weight: 600; font-size: 16px;
 }
 .success-msg.show { display: block; animation: fadeIn 0.5s ease-in; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
 .error-msg { 
   background: linear-gradient(135deg, #f8d7da, #f5c6cb); 
-  border: 2px solid #dc3545; border-radius: 12px; padding: 15px; 
+  border: 2px solid #dc3545; border-radius: 12px; padding: 18px; 
   color: #721c24; font-weight: 500; margin-top: 15px; display: none;
 }
 
@@ -69,38 +69,36 @@ input:focus { outline: none; border-color: #03c75a; box-shadow: 0 0 0 3px rgba(3
 <body>
 <div class="container">
   <h1>🔗 네이버 링크 만들기</h1>
-  <p class="subtitle">주소 입력 후 매물/거래 유형 선택 → 버튼 클릭 시 네이버 지도+부동산 자동 열림</p>
+  <p class="subtitle">매물/거래 유형 선택 → 주소 입력 → 버튼 클릭 시 네이버 지도+부동산 자동 열림</p>
 
-  <!-- 매물/거래 유형 먼저 (위치 변경) -->
+  <!-- 1순위: 매물/거래 유형 (최상단) -->
   <div class="types-section">
-    <div class="input-section">
-      <div class="property-title">📋 매물 유형 (복수 선택)</div>
-      <div class="property-types" id="property-types">
-        <button class="toggle-btn" data-value="APTHGJ">지식산업센터</button>
-        <button class="toggle-btn" data-value="SG" data-checked="true">상가</button>
-        <button class="toggle-btn" data-value="SMS" data-checked="true">사무실</button>
-        <button class="toggle-btn" data-value="TJ">토지</button>
-        <button class="toggle-btn" data-value="GM">건물</button>
-      </div>
-      
-      <div class="deal-title">💰 거래 유형 (단일 선택)</div>
-      <div class="deal-types radio-btns" id="deal-types">
-        <button class="toggle-btn radio" data-value="A1">매매</button>
-        <button class="toggle-btn radio" data-value="B1">전세</button>
-        <button class="toggle-btn radio" data-value="B2" data-checked="true">월세</button>
-        <button class="toggle-btn radio" data-value="B3">단기임대</button>
-      </div>
+    <div class="property-title">📋 매물 유형 (복수 선택)</div>
+    <div class="property-types" id="property-types">
+      <button class="toggle-btn" data-value="APTHGJ">지식산업센터</button>
+      <button class="toggle-btn" data-value="SG" data-checked="true">상가</button>
+      <button class="toggle-btn" data-value="SMS" data-checked="true">사무실</button>
+      <button class="toggle-btn" data-value="TJ">토지</button>
+      <button class="toggle-btn" data-value="GM">건물</button>
+    </div>
+    
+    <div class="deal-title">💰 거래 유형 (단일 선택)</div>
+    <div class="deal-types radio-btns" id="deal-types">
+      <button class="toggle-btn radio" data-value="A1">매매</button>
+      <button class="toggle-btn radio" data-value="B1">전세</button>
+      <button class="toggle-btn radio" data-value="B2" data-checked="true">월세</button>
+      <button class="toggle-btn radio" data-value="B3">단기임대</button>
     </div>
   </div>
 
-  <!-- 입력창 + 버튼 (아래로 이동) -->
+  <!-- 2순위: 입력창 + 버튼 (아래) -->
   <div class="input-section">
     <input id="address" placeholder="예: 서울 강남구 역삼동 123-45" />
     <button id="convertBtn" class="btn">🚀 네이버 링크 생성 (지도+부동산 자동 열기)</button>
   </div>
 
   <div id="successMsg" class="success-msg">
-    ✅ 네이버 지도와 부동산 페이지가 자동으로 열렸습니다!
+    ✅ 네이버 지도와 부동산 페이지가 새창으로 자동 열립니다!
   </div>
   <div id="errorMsg" class="error-msg"></div>
 </div>
@@ -110,7 +108,7 @@ input:focus { outline: none; border-color: #03c75a; box-shadow: 0 0 0 3px rgba(3
 const API_KEY = "5aa11b53a04d1bd6f78c87e27a21a400";
 let isFetching = false;
 
-// 확장프로그램과 100% 동일한 네이버 링크 생성 + 자동 창 열기
+// 확장프로그램과 동일 + 새창 강제 열기 (노션 임베드 대응)
 async function convertToNaverLinks() {
   const address = document.getElementById('address').value.trim();
   const btn = document.getElementById('convertBtn');
@@ -140,7 +138,6 @@ async function convertToNaverLinks() {
       throw new Error('주소를 찾을 수 없습니다.');
     }
     
-    // 확장프로그램과 동일한 좌표 추출
     const lat = parseFloat(data.documents[0].y);
     const lon = parseFloat(data.documents[0].x);
     
@@ -149,23 +146,26 @@ async function convertToNaverLinks() {
                                 .map(btn => btn.dataset.value);
     const dealType = document.querySelector('.toggle-btn.radio[data-checked="true"]')?.dataset.value || "";
     
-    // ✅ 확장프로그램과 100% 동일한 네이버 부동산 링크
+    // ✅ 확장프로그램과 100% 동일한 링크 생성
     let landUrl = `https://new.land.naver.com/offices?ms=${lat},${lon},19`;
     if (propertyTypes.length) landUrl += `&a=${propertyTypes.join(':')}`;
     if (dealType) landUrl += `&b=${dealType}`;
     
-    // 지도 링크도 동일
     let mapUrl = `https://map.naver.com/p/search/${encodeURIComponent(address)}/address/${lon},${lat},${encodeURIComponent(address)},new?c=18.00,0,0,0,dh&isCorrectAnswer=true`;
     
-    // ✅ 네이버 지도 + 부동산 2개 창 자동 열기
-    window.open(mapUrl, '_blank');
-    window.open(landUrl, '_blank');
+    // ✅ 새창 강제 열기 (팝업 차단 우회)
+    const mapWindow = window.open(mapUrl, 'naverMap', 'noopener,noreferrer,width=1200,height=800');
+    const landWindow = window.open(landUrl, 'naverLand', 'noopener,noreferrer,width=1400,height=900');
     
-    // 성공 메시지
-    successMsg.classList.add('show');
+    // 새창 열기 확인 및 후처리
+    if (mapWindow && landWindow) {
+      successMsg.classList.add('show');
+    } else {
+      throw new Error('팝업 차단 확인: 브라우저 팝업 차단을 해제해주세요.');
+    }
     
   } catch (error) {
-    showError('주소 변환 오류: ' + error.message);
+    showError(error.message);
   } finally {
     isFetching = false;
     btn.disabled = false;
@@ -185,9 +185,8 @@ function hideMessages() {
   document.getElementById('errorMsg').style.display = 'none';
 }
 
-// 토글 버튼 이벤트 (확장프로그램과 동일)
+// 토글 버튼 이벤트
 function setupToggleButtons() {
-  // 매물 유형 (복수선택)
   document.querySelectorAll('#property-types .toggle-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const isChecked = btn.dataset.checked === 'true';
@@ -195,7 +194,6 @@ function setupToggleButtons() {
     });
   });
   
-  // 거래 유형 (단일선택)
   document.querySelectorAll('#deal-types .toggle-btn.radio').forEach(btn => {
     btn.addEventListener('click', () => {
       document.querySelectorAll('#deal-types .toggle-btn.radio').forEach(b => {
@@ -209,20 +207,11 @@ function setupToggleButtons() {
 // 초기화
 document.addEventListener('DOMContentLoaded', function() {
   setupToggleButtons();
-  
   document.getElementById('convertBtn').addEventListener('click', convertToNaverLinks);
   document.getElementById('address').addEventListener('keypress', function(e) {
     if (e.key === 'Enter') convertToNaverLinks();
   });
-  
-  // URL 파라미터 자동 실행 (노션에서 사용시 편리)
-  const params = new URLSearchParams(location.search);
-  const addr = params.get('address') || params.get('addres') || params.get('addr');
-  if (addr) {
-    document.getElementById('address').value = decodeURIComponent(addr);
-  }
 });
 </script>
 </body>
 </html>
- 
