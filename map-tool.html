@@ -2,42 +2,91 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>주소→좌표 (네이버 - 구주소 지원)</title>
+<title>주소→좌표 (네이버 전용)</title>
 </head>
 <body>
-<input id="address" placeholder="구주소/도로명 모두 OK">
-<button onclick="findCoords()">좌표 찾기</button>
-<div id="coords" style="display:none;"></div>
+<h1>📍 주소 → 좌표 변환 (네이버)</h1>
+<div style="background:#ffebee;padding:15px;border-left:4px solid #f44336;margin-bottom:20px;">
+<strong>⚠️ CORS 401 에러 해결 필요</strong><br>
+네이버 클라우드 콘솔 → Application → Maps 앱 → IP 제한에<br>
+<code>185.199.108.153</code> 추가 후 테스트하세요
+</div>
+
+<input id="address" placeholder="구/도로명 주소 모두 OK (예: 역삼동 717-15)" style="width:100%;padding:12px;font-size:16px;border:1px solid #ddd;">
+<button onclick="findCoords()" style="width:100%;padding:12px;font-size:16px;background:#03c75a;color:white;border:none;margin:10px 0;cursor:pointer;">🔍 좌표 찾기 & 복사</button>
+<div id="result" style="display:none;padding:15px;background:#e8f5e8;border-left:4px solid #4caf50;">
+  <strong>✅ 좌표 복사 완료!</strong><br>
+  <div id="coords" style="background:#333;color:#0f0;padding:12px;font-family:monospace;border-radius:4px;margin-top:10px;"></div>
+</div>
 
 <script>
+// 네이버 지도 API 비동기 로드
+let naverReady = false;
 const script = document.createElement('script');
 script.src = 'https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=q581f6wc1o&ncpClientSecret=0W7Ouyl18C6u2N8B5gJ93MQfj0za0feYNLYOYF6c&submodules=geocoder';
 script.async = true;
+script.defer = true;
+script.onload = () => { naverReady = true; console.log('✅ 네이버 API 로드완료'); };
 document.head.appendChild(script);
 
 async function findCoords() {
   const address = document.getElementById('address').value.trim();
-  if (!address) return alert('주소 입력!');
+  if (!address) return alert('주소를 입력하세요!');
+  
+  const btn = document.querySelector('button');
+  btn.disabled = true;
+  btn.innerHTML = '⏳ 검색중...';
+  
+  // API 대기 (최대 3초)
+  const startTime = Date.now();
+  while (!naverReady && Date.now() - startTime < 3000) {
+    await new Promise(r => setTimeout(r, 100));
+  }
   
   if (!window.naver?.maps?.Service) {
-    alert('네이버 API 로딩중...');
+    alert('❌ 네이버 API 로드 실패\n\nCORS 401 에러 해결:\n1. 네이버 클라우드 콘솔\n2. Application → Maps 앱\n3. IP 제한 → 185.199.108.153 추가');
+    btn.disabled = false;
+    btn.innerHTML = '🔍 좌표 찾기 & 복사';
     return;
   }
   
   naver.maps.Service.geocode({
     query: address
   }, function(status, response) {
+    btn.disabled = false;
+    btn.innerHTML = '🔍 좌표 찾기 & 복사';
+    
     if (status === naver.maps.Service.Status.OK) {
       const result = response.v2.addresses[0];
-      const coords = `${result.y},${result.x}`;
-      document.getElementById('coords').textContent = coords;
-      document.getElementById('coords').style.display = 'block';
-      navigator.clipboard.writeText(coords);
+      const lat = parseFloat(result.y);
+      const lng = parseFloat(result.x);
+      const coordsText = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+      
+      // 자동 복사
+      navigator.clipboard.writeText(coordsText).then(() => {
+        document.getElementById('coords').textContent = coordsText;
+        document.getElementById('coords').title = `${result.roadAddress || result.jibunAddress}`;
+        document.getElementById('result').style.display = 'block';
+        document.getElementById('result').scrollIntoView({behavior: 'smooth'});
+      });
+      
     } else {
-      alert('실패: ' + status);
+      alert(`❌ 실패 (${status})\n\n해결방법:\n• 네이버 클라우드 → Application → Maps\n• IP 제한 → 185.199.108.153 허용\n\n테스트 주소: "서울 강남구 역삼동 717-15"`);
     }
   });
 }
+
+// URL 자동 실행
+const urlParams = new URLSearchParams(location.search);
+const addr = urlParams.get('address');
+if (addr) {
+  document.getElementById('address').value = decodeURIComponent(addr);
+  setTimeout(findCoords, 1500);
+}
+
+document.getElementById('address').addEventListener('keypress', e => {
+  if (e.key === 'Enter') findCoords();
+});
 </script>
 </body>
 </html>
