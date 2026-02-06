@@ -58,11 +58,24 @@ input:focus { outline: none; border-color: #03c75a; box-shadow: 0 0 0 3px rgba(3
   color: #721c24; font-weight: 500; margin-top: 15px; display: none;
 }
 
+/* 새로 추가: 매물번호 검색 섹션 */
+.article-section { 
+  background: #fff; border-radius: 16px; padding: 25px; margin-top: 30px; 
+  box-shadow: 0 10px 30px rgba(0,0,0,0.1); border: 2px solid #f8f9fa;
+}
+.article-title { font-size: 1.4em; font-weight: 700; color: #333; margin-bottom: 15px; text-align: center; }
+.article-input-group { display: flex; gap: 10px; margin-bottom: 15px; }
+.article-input { flex: 1; padding: 18px; font-size: 16px; border: 2px solid #e1e5e9; border-radius: 12px; }
+.article-input:focus { outline: none; border-color: #ff6b35; box-shadow: 0 0 0 3px rgba(255,107,53,0.1); }
+.article-btn { padding: 18px 24px; font-size: 16px; font-weight: 600; background: linear-gradient(135deg, #ff6b35, #f7931e); color: white; border: none; border-radius: 12px; cursor: pointer; white-space: nowrap; }
+.article-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 25px rgba(255,107,53,0.4); }
+
 @media (max-width: 600px) { 
   .container { padding: 20px; margin: 10px; } 
   h1 { font-size: 1.6em; } 
   .property-types, .deal-types { gap: 8px; }
   .toggle-btn { padding: 8px 12px; font-size: 12px; }
+  .article-input-group { flex-direction: column; }
 }
 </style>
 </head>
@@ -101,6 +114,15 @@ input:focus { outline: none; border-color: #03c75a; box-shadow: 0 0 0 3px rgba(3
     ✅ 네이버 지도와 부동산 페이지가 새창으로 자동 열립니다!
   </div>
   <div id="errorMsg" class="error-msg"></div>
+
+  <!-- 🔥 새로 추가: 네이버 부동산 매물번호 검색 -->
+  <div class="article-section">
+    <div class="article-title">🔍 네이버 부동산 매물번호 검색</div>
+    <div class="article-input-group">
+      <input id="articleId" class="article-input" placeholder="매물번호 입력 (예: 12345678)" />
+      <button id="articleBtn" class="article-btn">📄 확인</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -108,7 +130,7 @@ input:focus { outline: none; border-color: #03c75a; box-shadow: 0 0 0 3px rgba(3
 const API_KEY = "5aa11b53a04d1bd6f78c87e27a21a400";
 let isFetching = false;
 
-// 확장프로그램과 동일 + 새창 강제 열기 (노션 임베드 대응)
+// 기존 네이버 링크 생성 함수
 async function convertToNaverLinks() {
   const address = document.getElementById('address').value.trim();
   const btn = document.getElementById('convertBtn');
@@ -121,7 +143,6 @@ async function convertToNaverLinks() {
   }
   if (isFetching) return;
   
-  // UI 로딩 상태
   isFetching = true;
   btn.disabled = true;
   btn.classList.add('loading');
@@ -129,7 +150,6 @@ async function convertToNaverLinks() {
   hideMessages();
   
   try {
-    // 확장프로그램과 동일한 카카오 Geocoding API
     const data = await fetch(`https://dapi.kakao.com/v2/local/search/address.json?query=${encodeURIComponent(address)}`, {
       headers: { 'Authorization': `KakaoAK ${API_KEY}` }
     }).then(r => r.json());
@@ -141,23 +161,19 @@ async function convertToNaverLinks() {
     const lat = parseFloat(data.documents[0].y);
     const lon = parseFloat(data.documents[0].x);
     
-    // 확장프로그램과 동일한 매물/거래 유형 로직
     const propertyTypes = Array.from(document.querySelectorAll('.toggle-btn:not(.radio)[data-checked="true"]'))
                                 .map(btn => btn.dataset.value);
     const dealType = document.querySelector('.toggle-btn.radio[data-checked="true"]')?.dataset.value || "";
     
-    // ✅ 확장프로그램과 100% 동일한 링크 생성
     let landUrl = `https://new.land.naver.com/offices?ms=${lat},${lon},19`;
     if (propertyTypes.length) landUrl += `&a=${propertyTypes.join(':')}`;
     if (dealType) landUrl += `&b=${dealType}`;
     
     let mapUrl = `https://map.naver.com/p/search/${encodeURIComponent(address)}/address/${lon},${lat},${encodeURIComponent(address)},new?c=18.00,0,0,0,dh&isCorrectAnswer=true`;
     
-    // ✅ 새창 강제 열기 (팝업 차단 우회)
     const mapWindow = window.open(mapUrl, 'naverMap', 'noopener,noreferrer,width=1200,height=800');
     const landWindow = window.open(landUrl, 'naverLand', 'noopener,noreferrer,width=1400,height=900');
     
-    // 새창 열기 확인 및 후처리
     if (mapWindow && landWindow) {
       successMsg.classList.add('show');
     } else {
@@ -171,6 +187,25 @@ async function convertToNaverLinks() {
     btn.disabled = false;
     btn.classList.remove('loading');
     btn.innerHTML = '🚀 네이버 링크 생성 (지도+부동산 자동 열기)';
+  }
+}
+
+// 🔥 새로 추가: 네이버 부동산 매물번호 검색
+function searchArticle() {
+  const articleId = document.getElementById('articleId').value.trim();
+  const btn = document.getElementById('articleBtn');
+  
+  if (!articleId) {
+    alert('매물번호를 입력하세요.');
+    return;
+  }
+  
+  // https://fin.land.naver.com/articles/ + 매물번호 새창 열기
+  const articleUrl = `https://fin.land.naver.com/articles/${articleId}`;
+  const articleWindow = window.open(articleUrl, 'naverArticle', 'noopener,noreferrer,width=1200,height=800');
+  
+  if (!articleWindow) {
+    alert('팝업 차단 확인: 브라우저 팝업 차단을 해제해주세요.');
   }
 }
 
@@ -210,6 +245,12 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('convertBtn').addEventListener('click', convertToNaverLinks);
   document.getElementById('address').addEventListener('keypress', function(e) {
     if (e.key === 'Enter') convertToNaverLinks();
+  });
+  
+  // 🔥 새로 추가: 매물번호 검색 이벤트
+  document.getElementById('articleBtn').addEventListener('click', searchArticle);
+  document.getElementById('articleId').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') searchArticle();
   });
 });
 </script>
